@@ -1,15 +1,15 @@
 {
-  "name": "cool-kids-network-wp",
+  "name": "fez-delivery",
   "version": "1.0.0",
   "main": "Gruntfile.js",
   "scripts": {
     "watch": "clear && webpack --watch --mode development",
     "start": "clear && npm run watch",
     "compile": "clear && webpack --progress --mode production",
-    "translate": "wp i18n make-pot ./ languages/cool-kids-network-wp.pot --exclude=builds/,node_modules/,src,builds --ignore-domain --allow-root",
+    "translate": "wp i18n make-pot ./ languages/fez-delivery.pot --exclude=builds/,node_modules/,src,builds --ignore-domain --allow-root",
     "build": "clear && npm run compile && grunt build"
   },
-  "author": "Download Installed Extension",
+  "author": "Fez Team",
   "license": "GPL-3.0",
   "dependencies": {
     "@uiw/react-color": "^2.3.2",

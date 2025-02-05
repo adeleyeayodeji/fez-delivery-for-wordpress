@@ -1,6 +1,6 @@
 {
-  "name": "download-installed-extension/download-installed-extension",
-  "description": "A plugin for downloading the currently installed extension as a zip file.",
+  "name": "fez-delivery/fez-delivery",
+  "description": "A plugin for managing delivery orders.",
   "type": "project",
   "config": {
     "platform": {
@@ -29,8 +29,8 @@
   "license": "GPL-2.0+",
   "authors": [
     {
-      "name": "Adeleye Ayodeji",
-      "homepage": "https://www.adeleyeayodeji.com/"
+      "name": "Fez Team",
+      "homepage": "https://www.fezdelivery.co/"
     }
   ],
   "require": {

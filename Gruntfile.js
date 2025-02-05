@@ -7,7 +7,7 @@ module.exports = function (grunt) {
 
 		addtextdomain: {
 			options: {
-				textdomain: "cool-kids-network-wp",
+				textdomain: "fez-delivery",
 			},
 			update_all_domains: {
 				options: {
@@ -35,7 +35,7 @@ module.exports = function (grunt) {
 		compress: {
 			main: {
 				options: {
-					archive: "archive/cool-kids-network-wp.zip",
+					archive: "archive/fez-delivery.zip",
 				},
 				files: [
 					{
@@ -44,15 +44,15 @@ module.exports = function (grunt) {
 							"assets/**",
 							"core/**",
 							"vendor/**",
-							"cool-kids-network-wp.php",
+							"fez-delivery.php",
 							"readme.md",
 							"composer.json",
 						],
-						dest: "cool-kids-network-wp/",
+						dest: "fez-delivery/",
 						filter: function (filepath) {
 							// Ignore .logs, .gitignore, .map files, and .css files in assets/js
 							return !filepath.match(
-								/\.logs$|\.gitignore$|\.map$|assets\/js\/.*\.css$/,
+								/\.logs$|\.gitignore$|\.map$|assets\/js\/.*\.css$/
 							);
 						},
 					},
@@ -84,9 +84,9 @@ module.exports = function (grunt) {
 						grunt.log.writeln(stdout);
 						done();
 					}
-				},
+				}
 			);
-		},
+		}
 	);
 
 	// Register the delete_readme task
