@@ -15,6 +15,7 @@
 namespace Fez_Delivery;
 
 use Fez_Delivery\Admin\Admin_Core;
+use Fez_Delivery\Admin\Fez_Core;
 use Fez_Delivery\Base;
 
 // If this file is called directly, abort.
@@ -102,5 +103,7 @@ final class Loader extends Base
 	{
 		//init admin core
 		Admin_Core::instance()->init();
+		//init fez core
+		Fez_Core::instance()->init();
 	}
 }

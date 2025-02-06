@@ -51,7 +51,8 @@
   },
   "autoload": {
     "files": [
-      "app/helpers/helper.php"
+      "app/helpers/helper.php",
+      "app/wc-core/fez-shipping-method.php"
     ],
     "classmap": [
       "core/",

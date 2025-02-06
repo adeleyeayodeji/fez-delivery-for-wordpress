@@ -33,6 +33,10 @@ define('FEZ_DELIVERY_URL', plugin_dir_url(__FILE__));
 define('FEZ_DELIVERY_DIR_PATH', plugin_dir_path(__FILE__));
 //assets url
 define('FEZ_DELIVERY_ASSETS_URL', FEZ_DELIVERY_URL . '/assets/');
+//sandbox api url
+define('FEZ_DELIVERY_SANDBOX_API_URL', 'https://apisandbox.fezdelivery.co/');
+//production api url
+define('FEZ_DELIVERY_PRODUCTION_API_URL', 'https://api.fezdelivery.co/');
 
 //load the plugin
 require_once __DIR__ . '/vendor/autoload.php';

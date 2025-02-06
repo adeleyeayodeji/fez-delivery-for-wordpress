@@ -12,14 +12,9 @@
   "author": "Fez Team",
   "license": "GPL-3.0",
   "dependencies": {
-    "@uiw/react-color": "^2.3.2",
     "@wordpress/api-fetch": "^6.43.0",
     "@wordpress/element": "^5.23.0",
-    "block-ui": "^2.70.1",
-    "chart.js": "^4.4.4",
-    "chartjs-adapter-date-fns": "^3.0.0",
-    "react-beautiful-dnd": "^13.1.1",
-    "react-chartjs-2": "^5.2.0"
+    "block-ui": "^2.70.1"
   },
   "devDependencies": {
     "@babel/core": "^7.17.8",
