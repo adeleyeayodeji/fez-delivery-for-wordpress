@@ -24,8 +24,5 @@ class API_Core extends Base
 	private $api_version = 'v1';
 
 
-	public function init()
-	{
-		//
-	}
+	public function init() {}
 }
