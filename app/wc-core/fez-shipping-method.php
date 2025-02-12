@@ -69,6 +69,9 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 	 */
 	public function init_form_fields()
 	{
+		//get fez_delivery_user
+		$fez_delivery_user = get_option('fez_delivery_user');
+		//init form
 		$this->form_fields = array(
 			'enabled' => array(
 				'title'     => __('Enable/Disable'),
@@ -95,14 +98,25 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				"description" => __("Enter your Fez username or email"),
 				"placeholder" => "username@example.com",
 				"default" => "",
+				"disabled" => !empty($fez_delivery_user) ? true : false,
 			),
 			//fez password
 			"fez_password" => array(
 				"title" => __("Fez Password"),
-				"type" => "password",
+				"type" => !empty($fez_delivery_user) ? "hidden" : "password",
 				"description" => __("Enter your Fez password"),
 				"placeholder" => "********",
 				"default" => "",
+				"class" => !empty($fez_delivery_user) ? "fez-password-hidden" : "fez-password",
+				"disabled" => !empty($fez_delivery_user) ? true : false,
+			),
+			//add connection status
+			"connection_status" => array(
+				"title" => __("Connection Status"),
+				"type" => "readonly",
+				"description" => "",
+				"default" => "",
+				"class" => "fez-connection-status",
 			)
 		);
 	}

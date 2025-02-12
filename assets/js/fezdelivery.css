@@ -1,0 +1,24 @@
+/*!*********************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js!./node_modules/sass-loader/dist/cjs.js!./src/assets/sass/style.scss ***!
+  \*********************************************************************************************************************/
+.fez-connection-status {
+  display: none !important;
+}
+
+.fez-connection-status-pending {
+  color: #ff0000;
+  border: 1px solid #ff0000;
+  width: fit-content;
+  padding: 5px;
+  border-radius: 5px;
+}
+
+.fez-connection-status-connected {
+  color: #008000;
+  border: 1px solid #008000;
+  width: fit-content;
+  padding: 5px;
+  border-radius: 5px;
+}
+
+/*# sourceMappingURL=fezdelivery.css.map*/
