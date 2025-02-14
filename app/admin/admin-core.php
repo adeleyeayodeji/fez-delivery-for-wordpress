@@ -41,6 +41,22 @@ class Admin_Core extends Base
 		add_action('wp_ajax_save_fez_auth_woocommerce', array($this, 'save_fez_auth_woocommerce'));
 		//add action to disconnect fez auth
 		add_action('wp_ajax_disconnect_fez_auth', array($this, 'disconnect_fez_auth'));
+		//add settings link
+		add_filter('plugin_action_links_' . FEZ_DELIVERY_BASENAME, array($this, 'settings_link'));
+	}
+
+	/**
+	 * Settings link
+	 *
+	 * @param array $links
+	 * @return array
+	 */
+	public function settings_link($links)
+	{
+		//add settings link
+		$links[] = '<a href="' . admin_url('admin.php?page=wc-settings&tab=shipping&section=fez_delivery') . '">' . __('Settings', 'fez-delivery') . '</a>';
+		//return links
+		return $links;
 	}
 
 	/**

@@ -31,6 +31,7 @@ define('FEZ_DELIVERY_FILE', __FILE__);
 define('FEZ_DELIVERY_DIR', __DIR__);
 define('FEZ_DELIVERY_URL', plugin_dir_url(__FILE__));
 define('FEZ_DELIVERY_DIR_PATH', plugin_dir_path(__FILE__));
+define('FEZ_DELIVERY_BASENAME', plugin_basename(__FILE__));
 //assets url
 define('FEZ_DELIVERY_ASSETS_URL', FEZ_DELIVERY_URL . '/assets/');
 //sandbox api url

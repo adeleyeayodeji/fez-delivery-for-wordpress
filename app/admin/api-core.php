@@ -76,11 +76,49 @@ class API_Core extends Base
 	 */
 	public function initApi()
 	{
-		//init api
+		/**
+		 * Get WooCommerce Orders
+		 * @example http://localhost/wordpress/wp-json/fez-delivery/v1/orders
+		 * @return void
+		 */
 		register_rest_route($this->namespace . '/' . $this->api_version, '/orders', [
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => [$this, 'getWooCommerceOrders'],
 			'permission_callback' => [$this, 'checkPermission'],
+			'args' => [
+				'order_id' => [
+					'type' => 'string',
+					'required' => false,
+				],
+				'page' => [
+					'type' => 'integer',
+					'required' => false,
+				],
+				'limit' => [
+					'type' => 'integer',
+					'required' => false,
+				],
+				'date_from' => [
+					'type' => 'string',
+					'required' => false,
+				],
+				'date_to' => [
+					'type' => 'string',
+					'required' => false,
+				],
+				'customer_email' => [
+					'type' => 'string',
+					'required' => false,
+				],
+				'orderby' => [
+					'type' => 'string',
+					'required' => false,
+				],
+				'ordermode' => [
+					'type' => 'string',
+					'required' => false,
+				],
+			],
 		]);
 	}
 
@@ -93,13 +131,34 @@ class API_Core extends Base
 	public function checkPermission($request)
 	{
 		//get user settings
-		$user_settings = get_option('woocommerce_fez_delivery_settings');
-
-		//error log
-		error_log("User settings: " . print_r($user_settings, true));
+		$user_settings = get_option('fez_delivery_user', []);
+		//check if user settings is set
+		if (empty($user_settings)) {
+			//return false
+			return false;
+		}
+		//get request header
+		$authorization = $request->get_header('authorization');
+		//check if user settings is set
+		if (isset($authorization) && !empty($authorization)) {
+			//get token from bearer
+			$token = str_replace('Bearer ', '', $authorization);
+			//check if token is set
+			if (empty($token)) {
+				//return false
+				return false;
+			}
+			//check if token is set
+			if ($token !== $user_settings['data']->orgDetails->{'secret-key'}) {
+				//return false
+				return false;
+			}
+			//return true
+			return true;
+		}
 
 		//return true
-		return true;
+		return false;
 	}
 
 	/**
@@ -212,7 +271,7 @@ class API_Core extends Base
 				//orders list
 				$orders_list[] = [
 					"id" => $order_id,
-					"shipment_id" => $fez_order_id ?: null,
+					"fez_order_id" => $fez_order_id ?: null,
 					"products" => $products,
 					'order_meta' => [
 						//meta goes here
@@ -295,7 +354,7 @@ class API_Core extends Base
 			//orders list
 			$orders_list[] = [
 				"id" => $order_id,
-				"shipment_id" => $fez_order_id ?: "none",
+				"fez_order_id" => $fez_order_id ?: "none",
 				"products" => $products,
 				"extra" => $order_data,
 				'order_meta' => [
