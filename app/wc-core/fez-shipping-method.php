@@ -1,5 +1,7 @@
 <?php
 
+use Fez_Delivery\Admin\FezCoreSession;
+
 if (!defined('ABSPATH')) exit; // Exit if accessed directly
 
 // Check if WooCommerce shipping method is active
@@ -80,6 +82,7 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				'type'         => 'checkbox',
 				'label'     => __('Enable this shipping method'),
 				'default'     => 'no',
+				'disabled' => !empty($fez_delivery_user) ? true : false,
 			),
 			//fez mode
 			"fez_mode" => array(
@@ -150,7 +153,24 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 	 */
 	public function calculate_shipping($package = array())
 	{
+
 		if ($this->get_option('enabled') == 'no') {
+			return;
+		}
+
+		//get delivery cost
+		$fezsession = FezCoreSession::instance();
+		$delivery_cost = $fezsession->get('delivery_cost');
+
+		//check if delivery cost is set
+		if (!empty($delivery_cost)) {
+			//apply rate
+			$this->add_rate(array(
+				'id'        => $this->id . $this->instance_id,
+				'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery"),
+				'cost'      => apply_filters('fez_delivery_shipping_method_cost', $delivery_cost),
+			));
+			//return
 			return;
 		}
 
@@ -158,7 +178,7 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 		$this->add_rate(array(
 			'id'        => $this->id . $this->instance_id,
 			'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery"),
-			'cost'      => 0,
+			'cost'      => apply_filters('fez_delivery_shipping_method_cost', 0),
 			'meta_data' => [],
 		));
 	}

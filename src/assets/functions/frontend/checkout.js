@@ -5,11 +5,187 @@
  */
 jQuery(document).ready(function ($) {
 	/**
+	 * resetFezDeliveryCost
+	 *
+	 */
+	window.resetFezDeliveryCost = () => {
+		//trigger change event on state
+		jQuery("#billing_state").trigger("change");
+	};
+
+	/**
+	 * Reset delivery cost
+	 */
+	window.resetDeliveryCost = () => {
+		var form = jQuery("form[name='checkout']");
+		//ajax call to reset delivery cost
+		jQuery.ajax({
+			url: fez_delivery_frontend.ajax_url,
+			type: "POST",
+			data: {
+				action: "fez_reset_cost_data",
+				nonce: fez_delivery_frontend.nonce,
+			},
+			beforeSend: function () {
+				//clear any existing errors
+				$(".woocommerce-error-fez-delivery").remove();
+				//block form name="checkout"
+				form.block({
+					message: null,
+					overlayCSS: {
+						backgroundColor: "#fff",
+					},
+				});
+			},
+			success: function (response) {
+				//unblock form name="checkout"
+				form.unblock();
+				//update checkout
+				$(document.body).trigger("update_checkout");
+			},
+			error: function (response) {
+				//unblock form name="checkout"
+				form.unblock();
+				//show error
+				showFezDeliveryError(response.data.message);
+			},
+		});
+	};
+
+	//init resetDeliveryCost
+	resetDeliveryCost();
+
+	/**
+	 * Show fez delivery error
+	 * @param {string} message
+	 */
+	window.showFezDeliveryError = (message) => {
+		//create a div for woocommerce notice
+		var notice = jQuery(
+			"<div class='woocommerce-error woocommerce-error-fez-delivery'>" +
+				message +
+				"</div>",
+		);
+		//remove any existing notice
+		jQuery(".woocommerce-error-fez-delivery").remove();
+		//prepend notice to form name="checkout"
+		var form = jQuery("form[name='checkout']");
+		form.prepend(notice);
+		//scroll to the checkout form
+		jQuery("html, body").animate(
+			{
+				scrollTop: jQuery("form[name='checkout']").offset().top - 100,
+			},
+			"slow",
+		);
+	};
+
+	/**
+	 * Apply delivery cost
+	 * @param {object} element
+	 * @param {object} event
+	 */
+	window.applyDeliveryCost = (element, event) => {
+		event.preventDefault();
+		//get form
+		var form = jQuery("form[name='checkout']");
+		//get delivery cost
+		var deliveryCost = jQuery(element).data("delivery-cost");
+		//ajax call to apply delivery cost
+		jQuery.ajax({
+			url: fez_delivery_frontend.ajax_url,
+			type: "POST",
+			data: {
+				action: "apply_fez_delivery_cost",
+				delivery_cost: deliveryCost,
+				nonce: fez_delivery_frontend.nonce,
+			},
+			beforeSend: function () {
+				//clear any existing errors
+				$(".woocommerce-error-fez-delivery").remove();
+				//block form name="checkout"
+				form.block({
+					message: null,
+					overlayCSS: {
+						backgroundColor: "#fff",
+						opacity: 0.5,
+						cursor: "wait",
+					},
+				});
+			},
+			success: function (response) {
+				//unblock form name="checkout"
+				form.unblock();
+				//check if response is successful
+				if (response.success) {
+					//update woocommerce
+					$(document.body).trigger("update_checkout");
+					//remove .fez-delivery-cost
+					$(".fez-delivery-cost").remove();
+				} else {
+					//show error
+					showFezDeliveryError(response.data.message);
+				}
+			},
+			error: function (response) {
+				//unblock form name="checkout"
+				form.unblock();
+				//show error
+				showFezDeliveryError(response.data.message);
+			},
+		});
+	};
+
+	/**
+	 * Realtime check for delivery cost element
+	 *
+	 *
+	 */
+	window.checkForDeliveryCostElement = () => {
+		//get .fez-delivery-cost-value
+		var deliveryCostValue = jQuery(".fez-delivery-cost-value");
+		//check if delivery cost value exists
+		if (!deliveryCostValue.length) {
+			//check if #shipping_method exists
+			var shippingMethod = jQuery("#shipping_method");
+			if (shippingMethod.length > 0) {
+				//find label with text "Fez Delivery"
+				var label = shippingMethod.find(
+					"label:contains('Fez Delivery')",
+				);
+				//check if label exists
+				if (label.length > 0) {
+					//check if .fez-delivery-try-again exists
+					var tryAgain = label.find(".fez-delivery-try-again");
+					if (!tryAgain.length) {
+						//show try again link
+						label.append(`
+							<p class='fez-delivery-try-again'>
+							<a href='javascript:void(0)' class='fez-delivery-try-again-link' onclick='resetFezDeliveryCost()'>
+							Reload Delivery Cost
+							</a>
+							</p>
+						`);
+					}
+				}
+			}
+		} else {
+			//remove .fez-delivery-try-again
+			$(".fez-delivery-try-again").remove();
+		}
+	};
+
+	//set interval
+	setInterval(checkForDeliveryCostElement, 3000);
+
+	/**
 	 * Get delivery cost
 	 * @param {string} delivery_state
 	 *
 	 */
 	const getDeliveryCost = () => {
+		//reset delivery cost
+		resetDeliveryCost();
 		//get #ship-to-different-address-checkbox
 		const shipToDifferentAddressCheckbox = jQuery(
 			"#ship-to-different-address-checkbox",
@@ -34,6 +210,8 @@ jQuery(document).ready(function ($) {
 				nonce: fez_delivery_frontend.nonce,
 			},
 			beforeSend: function () {
+				//clear any existing errors
+				$(".woocommerce-error-fez-delivery").remove();
 				//block form name="checkout"
 				form.block({
 					message: null,
@@ -41,18 +219,20 @@ jQuery(document).ready(function ($) {
 						backgroundColor: "#fff",
 						opacity: 0.5,
 						cursor: "wait",
-						overlayCSS: {
-							backgroundColor: "#fff",
-							opacity: 0.5,
-							cursor: "wait",
-						},
 					},
 				});
 			},
 			success: function (response) {
 				//unblock form name="checkout"
 				form.unblock();
-				console.log(response);
+				//check if response is successful
+				if (response.success) {
+					//show delivery cost
+					showDeliveryCost(response.data.cost.cost);
+				} else {
+					//show error
+					showFezDeliveryError(response.data.message);
+				}
 			},
 			error: function (response) {
 				//unblock form name="checkout"
@@ -78,8 +258,100 @@ jQuery(document).ready(function ($) {
 	// initCheckout();
 
 	//on change of #ship-to-different-address-checkbox
-	jQuery("#ship-to-different-address-checkbox").on("change", function () {
+	jQuery("#billing_state, #shipping_state").on("change", function () {
 		//get delivery cost
 		getDeliveryCost();
 	});
+
+	/**
+	 * Show delivery cost
+	 * @param {float} delivery_cost
+	 */
+	const showDeliveryCost = (delivery_cost) => {
+		//check if #shipping_method exists
+		var shippingMethod = jQuery("#shipping_method");
+		if (shippingMethod.length > 0) {
+			//find label with text "Fez Delivery"
+			var label = shippingMethod.find("label:contains('Fez Delivery')");
+			//check if label exists
+			if (label.length > 0) {
+				//check if .fez-delivery-cost exists
+				if (label.find(".fez-delivery-cost").length > 0) {
+					//return
+					return;
+				}
+				//format delivery cost
+				var formattedDeliveryCost = Number(
+					delivery_cost,
+				).toLocaleString("en-US", {
+					currency: "NGN",
+					minimumFractionDigits: 0,
+				});
+				//remove .fez-delivery-try-again
+				$(".fez-delivery-try-again").remove();
+				//show delivery cost
+				label.append(`
+					<div class='fez-delivery-cost'>
+						<div class='fez-delivery-cost-label'>Delivery Cost:</div>
+						<div class='fez-delivery-cost-value'>
+							<span class='fez-delivery-cost-value-amount'>${formattedDeliveryCost}</span>
+							<span class='fez-delivery-cost-value-currency'>NGN</span>
+						</div>
+						<div class='fez-delivery-cta'>
+							<a href='javascript:void(0)' class='fez-delivery-cta-button' onclick='applyDeliveryCost(this, event)' data-delivery-cost='${delivery_cost}'>Select Delivery</a>
+						</div>
+					</div>
+				`);
+			}
+		}
+	};
+
+	/**
+	 * Confirm fez delivery
+	 * @param {object} element
+	 * @param {object} event
+	 */
+	window.confirmFezDelivery = (element, event) => {
+		//check if #shipping_method exists
+		var shippingMethod = jQuery("#shipping_method");
+		if (shippingMethod.length > 0) {
+			//find label with text "Fez Delivery"
+			var label = shippingMethod.find("label:contains('Fez Delivery')");
+			//check if label exists
+			if (label.length > 0) {
+				//check if label has woocommerce-Price-amount
+				if (!label.find(".woocommerce-Price-amount").length) {
+					//show error
+					showFezDeliveryError(
+						"Please select a valid delivery option to continue",
+					);
+					//return
+					return;
+				} else {
+					//submit form
+					jQuery("form[name='checkout']").submit();
+				}
+			}
+		}
+	};
+
+	/**
+	 * Manipulate the checkout button id="place_order"
+	 *
+	 *
+	 */
+	window.manipulateCheckoutButton = () => {
+		//remove the event listener on #place_order
+		jQuery("#place_order").off("click");
+		//change button type to button
+		jQuery("#place_order").attr("type", "button");
+		//add onclick attribute to #place_order
+		jQuery("#place_order").attr(
+			"onclick",
+			"confirmFezDelivery(this, event);",
+		);
+	};
+
+	//init
+	setInterval(manipulateCheckoutButton, 1000);
 });

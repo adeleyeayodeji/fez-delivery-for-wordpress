@@ -80,6 +80,114 @@ class Admin_Core extends Base
 		add_action('wp_ajax_get_fez_delivery_cost', array($this, 'get_fez_delivery_cost'));
 		//add action to get fez delivery cost
 		add_action('wp_ajax_nopriv_get_fez_delivery_cost', array($this, 'get_fez_delivery_cost'));
+		//add action to apply fez delivery cost
+		add_action('wp_ajax_apply_fez_delivery_cost', array($this, 'apply_fez_delivery_cost'));
+		//add action to refresh shipping methods realtime
+		add_action('woocommerce_checkout_update_order_review', array($this, 'checkout_update_refresh_shipping_methods'), PHP_INT_MAX, 1);
+		//add action to apply fez delivery cost
+		add_action('wp_ajax_nopriv_apply_fez_delivery_cost', array($this, 'apply_fez_delivery_cost'));
+		//fez_reset_cost_data
+		add_action('wp_ajax_fez_reset_cost_data', array($this, 'fez_reset_cost_data'));
+		// Add shipping icon to the shipping label
+		add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_shipping_icon'), PHP_INT_MAX, 2);
+	}
+
+	/**
+	 * Add shipping icon
+	 *
+	 * @param string $label
+	 * @param object $method
+	 * @return string
+	 */
+	public function add_shipping_icon($label, $method)
+	{
+		if ($method->method_id == 'fez_delivery') {
+			$logo_title = 'Fez Delivery';
+			$icon_url = FEZ_DELIVERY_ASSETS_URL . 'img/fez_logo.svg';
+			$img = '<img class="fez-delivery-logo" align="left"' .
+				' alt="' . $logo_title . '"' .
+				' title="' . $logo_title . '"' .
+				' src="' . $icon_url . '"' .
+				'>';
+			$label = $img . ' ' . $label;
+		}
+
+		return $label;
+	}
+
+	/**
+	 * Checkout update refresh shipping methods realtime
+	 *
+	 * @param string $post_data
+	 * @return void
+	 */
+	public function checkout_update_refresh_shipping_methods($post_data)
+	{
+		//update shipping pricing realtime
+		$packages = WC()->cart->get_shipping_packages();
+		foreach ($packages as $package_key => $package) {
+			WC()->session->set('shipping_for_package_' . $package_key, false); // Or true
+		}
+	}
+
+	/**
+	 * fez_reset_cost_data
+	 *
+	 * @return void
+	 */
+	public function fez_reset_cost_data()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_frontend_nonce')) {
+				throw new \Exception('Invalid nonce');
+			}
+			//unset delivery cost
+			$fezsession = FezCoreSession::instance();
+			$fezsession->unset('delivery_cost');
+
+			//return success
+			wp_send_json_success(array('message' => 'Delivery cost reset successfully'));
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Cost Clear Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error(array('message' => $e->getMessage()));
+		}
+	}
+
+	/**
+	 * Apply fez delivery cost
+	 *
+	 * @return void
+	 */
+	public function apply_fez_delivery_cost()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_frontend_nonce')) {
+				throw new \Exception('Invalid nonce');
+			}
+
+			//get delivery cost
+			$delivery_cost = sanitize_text_field($_POST['delivery_cost']);
+
+			//check if delivery cost is not empty
+			if (empty($delivery_cost)) {
+				throw new \Exception('Delivery cost is empty, please try again');
+			}
+
+			$fezsession = FezCoreSession::instance();
+			$fezsession->set('delivery_cost', $delivery_cost);
+
+			//return success
+			wp_send_json_success(array('message' => 'Delivery cost applied successfully'));
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Cost Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error(array('message' => $e->getMessage()));
+		}
 	}
 
 	/**
@@ -139,16 +247,14 @@ class Admin_Core extends Base
 			if ($response['success']) {
 				//return success
 				wp_send_json_success(array(
-					'message' => 'Delivery cost retrieved successfully',
-					'status' => 'success',
-					'data' => $response['data']
+					'message' => $response['message'],
+					'cost' => $response['cost']
 				));
 			} else {
 				//return error
 				wp_send_json_error(array(
 					'message' => $response['message'],
-					'status' => 'error',
-					'data' => []
+					'cost' => 0
 				));
 			}
 		} catch (\Exception $e) {
@@ -157,7 +263,7 @@ class Admin_Core extends Base
 			//return error
 			wp_send_json_error(array(
 				'message' => 'Error getting delivery cost: ' . $e->getMessage(),
-				'status' => 'error'
+				'cost' => 0
 			));
 		}
 	}

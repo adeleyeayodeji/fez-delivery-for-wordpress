@@ -1,0 +1,57 @@
+/**
+ * Fez Delivery Checkout
+ */
+
+.fez-delivery-cost {
+	display: flex;
+	flex-direction: column;
+	background: #f1f0f0;
+	padding: 7px 9px;
+	border-radius: 7px;
+	margin-top: 18px;
+
+	.fez-delivery-cost-label {
+		font-size: 14px;
+		font-weight: 600;
+		color: #6d6d6d;
+	}
+
+	.fez-delivery-cost-value {
+		font-size: 14px;
+		font-weight: 600;
+		color: #6d6d6d;
+	}
+
+	.fez-delivery-cta {
+		display: flex;
+		justify-content: flex-start;
+		align-items: flex-start;
+		margin-top: 5px;
+
+		.fez-delivery-cta-button {
+			text-decoration: none;
+			font-size: 14px;
+			font-weight: 600;
+			transition: all 0.3s ease;
+		}
+	}
+}
+
+.fez-delivery-logo {
+	width: 100%;
+	height: 25px;
+	margin-right: 10px;
+	max-width: 30px;
+	display: inline;
+}
+
+.fez-delivery-try-again {
+	margin-top: 10px;
+
+	.fez-delivery-try-again-link {
+		text-decoration: none;
+		color: #6d6d6d;
+		font-size: 14px;
+		font-weight: 600;
+	}
+}

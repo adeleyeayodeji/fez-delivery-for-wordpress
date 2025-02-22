@@ -12,7 +12,13 @@
 namespace Fez_Delivery\Admin;
 
 use Fez_Delivery\Base;
+use WC_Fez_Delivery_Shipping_Method;
 use WpOrg\Requests\Requests;
+
+//check for security
+if (!defined('ABSPATH')) {
+	exit("You are not allowed to access this file.");
+}
 
 class Fez_Core extends Base
 {
@@ -66,7 +72,33 @@ class Fez_Core extends Base
 	 * Initialize the class
 	 * @return void
 	 */
-	public function init() {}
+	public function init()
+	{
+		//plugin loaded
+		add_action('admin_init', array($this, 'fez_delivery_plugin_loaded'), PHP_INT_MAX);
+	}
+
+	/**
+	 * fez_delivery_plugin_loaded
+	 *
+	 */
+	public function fez_delivery_plugin_loaded()
+	{
+		$shipping = new WC_Fez_Delivery_Shipping_Method();
+		//check if shipping method is enabled
+		if ($shipping->enabled == "no") {
+			add_action('admin_notices', array($this, 'fez_delivery_disabled_notice'));
+		}
+	}
+
+	/**
+	 * fez_delivery_disabled_notice
+	 *
+	 */
+	public function fez_delivery_disabled_notice()
+	{
+		echo '<div class="error notice is-dismissible"><p>' . __('Fez Delivery is disabled. Please enable it in the WooCommerce settings. <a href="' . admin_url('admin.php?page=wc-settings&tab=shipping&section=fez_delivery') . '">Settings</a>', 'fez-delivery') . '</p></div>';
+	}
 
 	/**
 	 * Get the Fez mode
@@ -220,27 +252,31 @@ class Fez_Core extends Base
 				'weight' => $total_weight
 			];
 
-			$response = Requests::request($url, $headers, json_encode($data), 'PUT');
+			$response = Requests::post($url, $headers, json_encode($data));
 
-			//log all sent data
-			error_log("Fez Delivery Cost Data: " . print_r($data, true));
-			error_log("Fez Delivery Cost Headers: " . print_r($headers, true));
-			error_log("Fez Delivery Cost Response: " . print_r($response, true));
-
-			if (!$response->success) {
-				throw new \Exception($response->body);
-			}
-
+			//get the body
 			$response_body = json_decode($response->body);
 
-			//log the response
-			error_log("Fez Delivery Cost Response: " . print_r($response_body, true));
+			//check if response is successful
+			if (!$response->success) {
+				throw new \Exception($response_body->description);
+			}
 
-			// Process the response as needed
+			//check if response status is Success
+			if ($response_body->status == 'Success') {
+				//return success
+				return [
+					'success' => true,
+					'message' => $response_body->description,
+					'cost' => $response_body->Cost
+				];
+			}
+
+			//return error
 			return [
-				'success' => true,
-				'message' => 'Delivery cost retrieved successfully',
-				'data' => $response_body
+				'success' => false,
+				'message' => $response_body->description,
+				'data' => null
 			];
 		} catch (\Exception $e) {
 			error_log("Fez Delivery Cost Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());

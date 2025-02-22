@@ -16,6 +16,11 @@ use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
 
+//check for security
+if (!defined('ABSPATH')) {
+	exit("You are not allowed to access this file.");
+}
+
 class API_Core extends Base
 {
 	/**
