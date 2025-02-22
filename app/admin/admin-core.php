@@ -74,6 +74,92 @@ class Admin_Core extends Base
 		add_filter('woocommerce_shipping_calculator_enable_city', '__return_true');
 		//enqueue admin script
 		add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_script'));
+		//enqueue frontend script
+		add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_script'));
+		//add action to get fez delivery cost
+		add_action('wp_ajax_get_fez_delivery_cost', array($this, 'get_fez_delivery_cost'));
+		//add action to get fez delivery cost
+		add_action('wp_ajax_nopriv_get_fez_delivery_cost', array($this, 'get_fez_delivery_cost'));
+	}
+
+	/**
+	 * Get fez delivery cost
+	 *
+	 * @return void
+	 */
+	public function get_fez_delivery_cost()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_frontend_nonce')) {
+				throw new \Exception('Invalid nonce');
+			}
+
+			//get delivery state
+			$delivery_state = sanitize_text_field($_POST['deliveryState']);
+
+			//check if not empty
+			if (empty($delivery_state)) {
+				throw new \Exception('Delivery state is empty');
+			}
+
+			//init fez core
+			$fez_core = Fez_Core::instance();
+
+			//get pickup state
+			$pickup_state = $fez_core->pickup_state;
+
+			//get woocommerce states
+			$woocommerce_states = WC()->countries->get_states("NG");
+
+			//get state from state code
+			$delivery_state_label = $woocommerce_states[$delivery_state];
+
+			//get state from state code
+			$pickup_state_label = $woocommerce_states[$pickup_state];
+
+			//get total weight
+			$cart_items = WC()->cart->get_cart();
+
+			//check if cart items is not empty
+			if (empty($cart_items)) {
+				throw new \Exception('Cart items are empty');
+			}
+
+			//get total weight
+			$total_weight = 0;
+			foreach ($cart_items as $item) {
+				$total_weight += !empty($item['data']->get_weight()) ? (float)$item['data']->get_weight() : 3;
+			}
+
+			//get delivery cost
+			$response = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight);
+
+			//check if response is successful
+			if ($response['success']) {
+				//return success
+				wp_send_json_success(array(
+					'message' => 'Delivery cost retrieved successfully',
+					'status' => 'success',
+					'data' => $response['data']
+				));
+			} else {
+				//return error
+				wp_send_json_error(array(
+					'message' => $response['message'],
+					'status' => 'error',
+					'data' => []
+				));
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Cost Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error(array(
+				'message' => 'Error getting delivery cost: ' . $e->getMessage(),
+				'status' => 'error'
+			));
+		}
 	}
 
 	/**
@@ -117,6 +203,24 @@ class Admin_Core extends Base
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('fez_delivery_admin_nonce'),
 			'connection_status' => $this->connection_status_html()
+		));
+	}
+
+	/**
+	 * Enqueue frontend script
+	 *
+	 * @return void
+	 */
+	public function enqueue_frontend_script()
+	{
+		//enqueue frontend script
+		wp_enqueue_script('fez-delivery-frontend-script', FEZ_DELIVERY_ASSETS_URL . 'js/fezdeliveryhome.min.js', array('jquery'), FEZ_DELIVERY_VERSION, true);
+		//style
+		wp_enqueue_style('fez-delivery-frontend-style', FEZ_DELIVERY_ASSETS_URL . 'css/fezdeliveryhome.min.css', array(), FEZ_DELIVERY_VERSION);
+		//localize script
+		wp_localize_script('fez-delivery-frontend-script', 'fez_delivery_frontend', array(
+			'ajax_url' => admin_url('admin-ajax.php'),
+			'nonce' => wp_create_nonce('fez_delivery_frontend_nonce')
 		));
 	}
 
@@ -173,10 +277,17 @@ class Admin_Core extends Base
 			$fez_mode = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_mode']);
 			//get woocommerce_fez_delivery_enabled
 			$enabled = absint($_POST['woocommerce_fez_delivery_enabled']);
+			//get woocommerce_fez_delivery_fez_pickup_state
+			$fez_pickup_state = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_pickup_state']);
 
 			//validate username and password
 			if (empty($fez_username) || empty($fez_password)) {
 				throw new \Exception('Username or password is empty');
+			}
+
+			//validate pickup state
+			if (empty($fez_pickup_state)) {
+				throw new \Exception('Pickup state is empty');
 			}
 
 			//validate user credentials
@@ -202,7 +313,8 @@ class Admin_Core extends Base
 					'fez_mode' => $fez_mode,
 					'fez_username' => $fez_username,
 					'fez_password' => $fez_password,
-					'enabled' => $enabled ? 'yes' : 'no'
+					'enabled' => $enabled ? 'yes' : 'no',
+					'fez_pickup_state' => $fez_pickup_state
 				];
 				//update woocommerce options
 				update_option('woocommerce_fez_delivery_settings', array_merge($old_options, $woo_args));

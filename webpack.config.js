@@ -8,6 +8,7 @@ module.exports = {
 	...defaultConfig,
 	entry: {
 		fezdelivery: "./src/main.jsx",
+		fezdeliveryhome: "./src/frontend.jsx",
 	},
 
 	output: {

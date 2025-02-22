@@ -71,6 +71,8 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 	{
 		//get fez_delivery_user
 		$fez_delivery_user = get_option('fez_delivery_user');
+		//get woocommerce states
+		$woocommerce_states = WC()->countries->get_states("NG");
 		//init form
 		$this->form_fields = array(
 			'enabled' => array(
@@ -86,6 +88,7 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				"description" => __("Select production or sandbox mode, production mode will use for live orders"),
 				"placeholder" => "sandbox",
 				"default" => "sandbox",
+				"disabled" => !empty($fez_delivery_user) ? true : false,
 				"options" => array(
 					"sandbox" => __("Sandbox"),
 					"production" => __("Production"),
@@ -108,6 +111,16 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				"placeholder" => "********",
 				"default" => "",
 				"class" => !empty($fez_delivery_user) ? "fez-password-hidden" : "fez-password",
+				"disabled" => !empty($fez_delivery_user) ? true : false,
+			),
+			//fez pickup state
+			"fez_pickup_state" => array(
+				"title" => __("Fez Pickup State"),
+				"type" => "select",
+				"description" => __("Select your Fez pickup state"),
+				"placeholder" => "LA",
+				"default" => "LA",
+				"options" => $woocommerce_states,
 				"disabled" => !empty($fez_delivery_user) ? true : false,
 			),
 			//add connection status

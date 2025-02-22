@@ -41,6 +41,18 @@ class Fez_Core extends Base
 	public $password;
 
 	/**
+	 * Pickup state
+	 * @var string
+	 */
+	public $pickup_state;
+
+	/**
+	 * Fez delivery user
+	 * @var array
+	 */
+	public $fez_delivery_user = [];
+
+	/**
 	 * Constructor
 	 * @return void
 	 */
@@ -64,6 +76,13 @@ class Fez_Core extends Base
 	public function getFezMode($fez_mode = null)
 	{
 		$fez_options = get_option('woocommerce_fez_delivery_settings');
+		//get fez_delivery_user
+		$fez_delivery_user = get_option('fez_delivery_user');
+		//check if fez_delivery_user is set
+		if (isset($fez_delivery_user)) {
+			$this->fez_delivery_user = $fez_delivery_user;
+		}
+
 		//check if data is set
 		if (isset($fez_options['fez_mode'])) {
 			$this->fez_mode = $fez_options['fez_mode'];
@@ -86,6 +105,9 @@ class Fez_Core extends Base
 		//get the user id and password
 		$this->user_id = $fez_options['fez_username'];
 		$this->password = $fez_options['fez_password'];
+
+		//get the pickup state
+		$this->pickup_state = $fez_options['fez_pickup_state'];
 	}
 
 	/**
@@ -157,6 +179,71 @@ class Fez_Core extends Base
 		} catch (\Exception $e) {
 			error_log("Fez Authentication Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 			//return error response
+			return [
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			];
+		}
+	}
+
+	/**
+	 * Get delivery cost
+	 * @param string $delivery_state
+	 * @param string $pickup_state
+	 * @param float $total_weight
+	 * @return array
+	 */
+	public function getDeliveryCost(string $delivery_state, string $pickup_state, float $total_weight)
+	{
+		try {
+			//get the auth token
+			$auth_token = $this->authenticateUser();
+
+			//check if auth token is set
+			if (!$auth_token['success']) {
+				throw new \Exception($auth_token['message']);
+			}
+
+			//get secret key
+			$secret_key = $this->fez_delivery_user["data"]->orgDetails->{'secret-key'};
+
+			$url = $this->api_url . 'v1/order/cost';
+			$headers = [
+				'Content-Type' => 'application/json',
+				'secret-key'   => $secret_key,
+				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
+			];
+			$data = [
+				'state' => $delivery_state,
+				'pickUpState' => $pickup_state,
+				'weight' => $total_weight
+			];
+
+			$response = Requests::request($url, $headers, json_encode($data), 'PUT');
+
+			//log all sent data
+			error_log("Fez Delivery Cost Data: " . print_r($data, true));
+			error_log("Fez Delivery Cost Headers: " . print_r($headers, true));
+			error_log("Fez Delivery Cost Response: " . print_r($response, true));
+
+			if (!$response->success) {
+				throw new \Exception($response->body);
+			}
+
+			$response_body = json_decode($response->body);
+
+			//log the response
+			error_log("Fez Delivery Cost Response: " . print_r($response_body, true));
+
+			// Process the response as needed
+			return [
+				'success' => true,
+				'message' => 'Delivery cost retrieved successfully',
+				'data' => $response_body
+			];
+		} catch (\Exception $e) {
+			error_log("Fez Delivery Cost Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 			return [
 				'success' => false,
 				'message' => $e->getMessage(),
