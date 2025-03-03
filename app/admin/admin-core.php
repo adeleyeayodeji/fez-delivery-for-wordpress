@@ -13,6 +13,7 @@ namespace Fez_Delivery\Admin;
 
 use Fez_Delivery\Base;
 use WC_Fez_Delivery_Shipping_Method;
+use WC_Order;
 
 //check for security
 if (!defined('ABSPATH')) {
@@ -82,14 +83,51 @@ class Admin_Core extends Base
 		add_action('wp_ajax_nopriv_get_fez_delivery_cost', array($this, 'get_fez_delivery_cost'));
 		//add action to apply fez delivery cost
 		add_action('wp_ajax_apply_fez_delivery_cost', array($this, 'apply_fez_delivery_cost'));
-		//add action to refresh shipping methods realtime
-		add_action('woocommerce_checkout_update_order_review', array($this, 'checkout_update_refresh_shipping_methods'), PHP_INT_MAX, 1);
 		//add action to apply fez delivery cost
 		add_action('wp_ajax_nopriv_apply_fez_delivery_cost', array($this, 'apply_fez_delivery_cost'));
+		//add action to refresh shipping methods realtime
+		add_action('woocommerce_checkout_update_order_review', array($this, 'checkout_update_refresh_shipping_methods'), PHP_INT_MAX, 1);
 		//fez_reset_cost_data
 		add_action('wp_ajax_fez_reset_cost_data', array($this, 'fez_reset_cost_data'));
 		// Add shipping icon to the shipping label
 		add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_shipping_icon'), PHP_INT_MAX, 2);
+		//woocommerce_checkout_update_order_meta
+		add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+		//woocommerce_checkout_order_created
+		add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+	}
+
+	/**
+	 * Save fez delivery order meta
+	 *
+	 * @param mixed $order
+	 * @return void
+	 */
+	public function save_fez_delivery_order_meta($order)
+	{
+		//check if order is an instance of WC_Order
+		if ($order && $order instanceof WC_Order) {
+			//get order id
+			$order_id = $order->get_id();
+		} else {
+			//get order id
+			$order_id = $order;
+		}
+
+		//get order
+		$order = wc_get_order($order_id);
+
+		$dataRequest = [
+			[
+				"recipientAddress" => "Idumota",
+				"recipientState" => "Lagos",
+				"recipientName" => "Femi",
+				"recipientPhone" => "08000000000000",
+				"uniqueID" => "KingOne-1234",
+				"BatchID" => "KingOne-1",
+				"valueOfItem" => "20000"
+			]
+		];
 	}
 
 	/**
@@ -248,7 +286,10 @@ class Admin_Core extends Base
 				//return success
 				wp_send_json_success(array(
 					'message' => $response['message'],
-					'cost' => $response['cost']
+					'cost' => $response['cost'],
+					'delivery_state_label' => $delivery_state_label,
+					'pickup_state_label' => $pickup_state_label,
+					'total_weight' => $total_weight
 				));
 			} else {
 				//return error
