@@ -34,7 +34,9 @@
     }
   ],
   "require": {
-    "php": ">=7.4"
+    "php": ">=7.4",
+    "mpdf/mpdf": "^8.2",
+    "endroid/qr-code": "^4.6"
   },
   "require-dev": {
     "phpcsstandards/phpcsutils": "^1.0",

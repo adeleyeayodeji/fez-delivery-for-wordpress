@@ -125,6 +125,23 @@ class API_Core extends Base
 				],
 			],
 		]);
+
+		//v1/update_order/117
+		register_rest_route($this->namespace . '/' . $this->api_version, '/update_order/(?P<order_id>\d+)', [
+			'methods' => WP_REST_Server::EDITABLE,
+			'callback' => [$this, 'updateWooCommerceOrder'],
+			'permission_callback' => [$this, 'checkPermission'],
+			'args' => [
+				'order_id' => [
+					'type' => 'integer',
+					'required' => true,
+				],
+				'fez_order_id' => [
+					'type' => 'string',
+					'required' => true,
+				],
+			],
+		]);
 	}
 
 	/**
@@ -164,6 +181,70 @@ class API_Core extends Base
 
 		//return true
 		return false;
+	}
+
+	/**
+	 * Update WooCommerce Order
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response
+	 */
+	public function updateWooCommerceOrder(WP_REST_Request $request)
+	{
+		try {
+			//get the order id
+			$order_id = $request->get_param('order_id');
+
+			//check if order id is set
+			if (!$order_id) {
+				//throw error
+				throw new \Exception("Order ID is required");
+			}
+
+			//get the fez order id
+			$fez_order_id = $request->get_param('fez_order_id');
+			//sanitize fez order id
+			$fez_order_id = sanitize_text_field($fez_order_id);
+			//check if fez order id is set
+			if (!$fez_order_id) {
+				//throw error
+				throw new \Exception("Fez Order ID is required");
+			}
+
+			//get order
+			$order = wc_get_order($order_id);
+			//check if order is set
+			if (!$order) {
+				//throw error
+				throw new \Exception("Order not found");
+			}
+
+			//update order
+			//update order meta
+			$order->update_meta_data('fez_delivery_order_nos', $fez_order_id);
+			//add order note
+			$order->add_order_note('Fez Delivery Order Initiated: ' . $fez_order_id);
+			//add message note
+			$order->add_order_note('Fez Delivery Order via API');
+			//save order
+			$order->save();
+
+			//response
+			$response = [
+				"status" => 200,
+				"message" => "Order updated successfully",
+			];
+			//return
+			return new WP_REST_Response($response, 200);
+		} catch (\Exception $e) {
+			//response
+			$response = [
+				"status" => 500,
+				"message" => "Error updating order",
+				"data" => $e->getMessage(),
+			];
+			//return
+			return new WP_REST_Response($response, 500);
+		}
 	}
 
 	/**

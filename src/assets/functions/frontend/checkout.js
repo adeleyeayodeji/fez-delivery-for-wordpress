@@ -91,6 +91,10 @@ jQuery(document).ready(function ($) {
 		var form = jQuery("form[name='checkout']");
 		//get delivery cost
 		var deliveryCost = jQuery(element).data("delivery-cost");
+		var deliveryStateLabel = jQuery(element).data("delivery-state-label");
+		var pickupStateLabel = jQuery(element).data("pickup-state-label");
+		var totalWeight = jQuery(element).data("total-weight");
+
 		//ajax call to apply delivery cost
 		jQuery.ajax({
 			url: fez_delivery_frontend.ajax_url,
@@ -98,6 +102,9 @@ jQuery(document).ready(function ($) {
 			data: {
 				action: "apply_fez_delivery_cost",
 				delivery_cost: deliveryCost,
+				delivery_state_label: deliveryStateLabel,
+				pickup_state_label: pickupStateLabel,
+				total_weight: totalWeight,
 				nonce: fez_delivery_frontend.nonce,
 			},
 			beforeSend: function () {
@@ -228,7 +235,7 @@ jQuery(document).ready(function ($) {
 				//check if response is successful
 				if (response.success) {
 					//show delivery cost
-					showDeliveryCost(response.data.cost.cost);
+					showDeliveryCost(response.data.cost.cost, response.data);
 				} else {
 					//show error
 					showFezDeliveryError(response.data.message);
@@ -266,8 +273,9 @@ jQuery(document).ready(function ($) {
 	/**
 	 * Show delivery cost
 	 * @param {float} delivery_cost
+	 * @param {mixed} response_data
 	 */
-	const showDeliveryCost = (delivery_cost) => {
+	const showDeliveryCost = (delivery_cost, response_data) => {
 		//check if #shipping_method exists
 		var shippingMethod = jQuery("#shipping_method");
 		if (shippingMethod.length > 0) {
@@ -275,11 +283,6 @@ jQuery(document).ready(function ($) {
 			var label = shippingMethod.find("label:contains('Fez Delivery')");
 			//check if label exists
 			if (label.length > 0) {
-				//check if .fez-delivery-cost exists
-				if (label.find(".fez-delivery-cost").length > 0) {
-					//return
-					return;
-				}
 				//format delivery cost
 				var formattedDeliveryCost = Number(
 					delivery_cost,
@@ -289,19 +292,31 @@ jQuery(document).ready(function ($) {
 				});
 				//remove .fez-delivery-try-again
 				$(".fez-delivery-try-again").remove();
-				//show delivery cost
-				label.append(`
-					<div class='fez-delivery-cost'>
+
+				var content = `
 						<div class='fez-delivery-cost-label'>Delivery Cost:</div>
 						<div class='fez-delivery-cost-value'>
 							<span class='fez-delivery-cost-value-amount'>${formattedDeliveryCost}</span>
 							<span class='fez-delivery-cost-value-currency'>NGN</span>
 						</div>
 						<div class='fez-delivery-cta'>
-							<a href='javascript:void(0)' class='fez-delivery-cta-button' onclick='applyDeliveryCost(this, event)' data-delivery-cost='${delivery_cost}'>Select Delivery</a>
+							<a href='javascript:void(0)' class='fez-delivery-cta-button' onclick='applyDeliveryCost(this, event)'
+							data-delivery-state-label='${response_data.delivery_state_label}'
+							data-pickup-state-label='${response_data.pickup_state_label}'
+							data-total-weight='${response_data.total_weight}'
+							data-delivery-cost='${delivery_cost}'>Select Delivery</a>
 						</div>
-					</div>
-				`);
+				`;
+
+				//check if .fez-delivery-cost exists
+				if (label.find(".fez-delivery-cost").length > 0) {
+					//replace content
+					label.find(".fez-delivery-cost").html(content);
+					//return
+					return;
+				}
+				//show delivery cost
+				label.append(`<div class='fez-delivery-cost'>${content}</div>`);
 			}
 		}
 	};

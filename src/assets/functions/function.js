@@ -164,4 +164,57 @@ jQuery(document).ready(function ($) {
 			.closest("tr")
 			.hide();
 	}
+
+	/**
+	 * Get Fez Delivery Order Details
+	 *
+	 */
+	var $fezDeliveryOrderDetails = $(".fez-delivery-order-details");
+	//check if element with .fez-delivery-order-details exists
+	if ($fezDeliveryOrderDetails.length > 0) {
+		//get .fez-delivery-order-status-wc-order
+		var $fezDeliveryOrderStatusWcOrder = $fezDeliveryOrderDetails.find(
+			".fez-delivery-order-status-wc-order",
+		);
+		//get .fez-delivery-order-cost-wc-order
+		var $fezDeliveryOrderCostWcOrder = $fezDeliveryOrderDetails.find(
+			".fez-delivery-order-cost-wc-order",
+		);
+		//send request for status
+		$.ajax({
+			type: "GET",
+			url: fez_delivery_admin.ajax_url,
+			data: {
+				action: "get_fez_delivery_order_details",
+				order_id: $fezDeliveryOrderStatusWcOrder.data("order-id"),
+				order_nos: $fezDeliveryOrderStatusWcOrder.data("order-nos"),
+				nonce: fez_delivery_admin.nonce,
+			},
+			dataType: "json",
+			beforeSend: function () {
+				//change text to "Getting details..."
+				$fezDeliveryOrderStatusWcOrder.text("Getting details...");
+				$fezDeliveryOrderCostWcOrder.text("--");
+			},
+			success: function (response) {
+				//check if response is successful
+				if (response.success) {
+					//change text to "Manage on Fez"
+					$fezDeliveryOrderStatusWcOrder.text(
+						response.data.order_status,
+					);
+					$fezDeliveryOrderCostWcOrder.html(response.data.cost);
+				} else {
+					//change text to "Getting details..."
+					$fezDeliveryOrderStatusWcOrder.text(response.data);
+					$fezDeliveryOrderCostWcOrder.text("Error getting details");
+				}
+			},
+			error: function (response) {
+				//change text to "Getting details..."
+				$fezDeliveryOrderStatusWcOrder.text("Error getting details");
+				$fezDeliveryOrderCostWcOrder.text("Error getting details");
+			},
+		});
+	}
 });

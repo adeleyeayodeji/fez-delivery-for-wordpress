@@ -15,6 +15,7 @@ use Fez_Delivery\Base;
 use WC_Fez_Delivery_Shipping_Method;
 use WpOrg\Requests\Requests;
 
+
 //check for security
 if (!defined('ABSPATH')) {
 	exit("You are not allowed to access this file.");
@@ -145,20 +146,17 @@ class Fez_Core extends Base
 	/**
 	 * Authenticate user
 	 * @param array $user_credentials
-	 * @return mixed
+	 * @return array
 	 */
 	public function authenticateUser($user_credentials = [])
 	{
 		try {
-			//create hash for the user credentials
-			$hash = md5(json_encode($user_credentials));
 
-			//get the auth token
-			$auth_token = get_transient('fez_delivery_auth_token_' . $hash);
+			// Get cached auth token
+			$auth_token = get_transient('fez_delivery_auth_token_static');
 
-			//check if valid
-			if ($auth_token) {
-				//return existing auth token
+			// Check if valid and not expired
+			if ($auth_token && isset($auth_token['expireToken']) && strtotime($auth_token['expireToken']) > time()) {
 				return [
 					'success' => true,
 					'message' => 'User authenticated successfully',
@@ -166,31 +164,33 @@ class Fez_Core extends Base
 				];
 			}
 
-			//check if user credentials are set
-			if (empty($user_credentials)) {
-				$request_args = [
-					'user_id' => $this->user_id,
-					'password' => $this->password
-				];
-			} else {
-				$request_args = $user_credentials;
-			}
+			// Prepare credentials
+			$request_args = !empty($user_credentials) ? $user_credentials : [
+				'user_id' => $this->user_id,
+				'password' => $this->password
+			];
 
-			//authenticate user
-			$response = Requests::post($this->api_url . 'v1/user/authenticate', [
-				'Content-Type' => 'application/json'
-			], json_encode($request_args));
+			// Authenticate user via API
+			$response = Requests::post(
+				$this->api_url . 'v1/user/authenticate',
+				['Content-Type' => 'application/json'],
+				json_encode($request_args)
+			);
 
-			//get the body
+			// Decode response
 			$body = json_decode($response->body);
 
-			//check if response is successful
-			if (!$response->success) {
-				//throw error
-				throw new \Exception($body->description);
+			// Ensure response is successful
+			if ($response->status_code !== 200 || !isset($body->authDetails->authToken)) {
+				throw new \Exception($body->description ?? 'Authentication failed');
 			}
 
-			//return response
+			// Extract authentication details
+			$expire_timestamp = strtotime($body->authDetails->expireToken);
+			if (!$expire_timestamp) {
+				throw new \Exception('Invalid expiration time received');
+			}
+
 			$response_data = [
 				'success' => true,
 				'message' => 'User authenticated successfully',
@@ -199,10 +199,13 @@ class Fez_Core extends Base
 				'expireToken' => $body->authDetails->expireToken
 			];
 
-			//save to transients for the expiry time (2025-02-06 11:04:24)
-			set_transient('fez_delivery_auth_token_' . $hash, $response_data, strtotime($response_data['expireToken']));
+			// Calculate expiration time difference
+			$current_timestamp = time();
+			$time_difference = max($expire_timestamp - $current_timestamp, 1); // Ensure at least 1 second
 
-			//return response
+			// Store in transient with expiration
+			set_transient('fez_delivery_auth_token_static', $response_data, $time_difference);
+
 			return [
 				'success' => true,
 				'message' => 'User authenticated successfully',
@@ -210,7 +213,6 @@ class Fez_Core extends Base
 			];
 		} catch (\Exception $e) {
 			error_log("Fez Authentication Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
-			//return error response
 			return [
 				'success' => false,
 				'message' => $e->getMessage(),
@@ -238,14 +240,16 @@ class Fez_Core extends Base
 			}
 
 			//get secret key
-			$secret_key = $this->fez_delivery_user["data"]->orgDetails->{'secret-key'};
+			$secret_key = $auth_token["data"]['data']->orgDetails->{'secret-key'};
 
 			$url = $this->api_url . 'v1/order/cost';
+
 			$headers = [
 				'Content-Type' => 'application/json',
 				'secret-key'   => $secret_key,
 				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
 			];
+
 			$data = [
 				'state' => $delivery_state,
 				'pickUpState' => $pickup_state,
@@ -259,7 +263,7 @@ class Fez_Core extends Base
 
 			//check if response is successful
 			if (!$response->success) {
-				throw new \Exception($response_body->description);
+				throw new \Exception("Fez Server: " . $response_body->description);
 			}
 
 			//check if response status is Success
@@ -280,6 +284,125 @@ class Fez_Core extends Base
 			];
 		} catch (\Exception $e) {
 			error_log("Fez Delivery Cost Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
+			return [
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			];
+		}
+	}
+
+	/**
+	 * Create order
+	 * @param array $data
+	 * @return array
+	 */
+	public function createOrder(array $data)
+	{
+		try {
+			//get the auth token
+			$auth_token = $this->authenticateUser();
+
+			//check if auth token is set
+			if (!$auth_token['success']) {
+				throw new \Exception($auth_token['message']);
+			}
+
+			//get secret key
+			$secret_key = $this->fez_delivery_user["data"]->orgDetails->{'secret-key'};
+
+			$url = $this->api_url . 'v1/order';
+			$headers = [
+				'Content-Type' => 'application/json',
+				'secret-key'   => $secret_key,
+				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
+			];
+
+			//create order
+			$response = Requests::post($url, $headers, json_encode($data));
+
+			//get the body
+			$response_body = json_decode($response->body);
+
+			//check if response is successful
+			if (!$response->success) {
+				throw new \Exception($response->body);
+			}
+
+			//return success
+			return [
+				'success' => true,
+				'message' => $response_body->description,
+				'data' => $response_body->orderNos
+			];
+		} catch (\Exception $e) {
+			error_log("Fez Delivery Cost Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
+			return [
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			];
+		}
+	}
+
+	/**
+	 * Get fez delivery order details
+	 * @param string $order_id
+	 * @param string $order_nos
+	 * @return array
+	 */
+	public function getFezDeliveryOrderDetails(string $order_id, string $order_nos)
+	{
+		try {
+			//get the auth token
+			$auth_token = $this->authenticateUser();
+
+			//get secret key
+			$secret_key = $this->fez_delivery_user["data"]->orgDetails->{'secret-key'};
+
+			//https://apisandbox.fezdelivery.co/v1/orders/JHAZ27012319
+			$url = $this->api_url . 'v1/orders/' . $order_nos;
+			$headers = [
+				'Content-Type' => 'application/json',
+				'secret-key'   => $secret_key,
+				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
+			];
+
+			$response = Requests::get($url, $headers);
+
+			//get the body
+			$response_body = json_decode($response->body);
+
+			//check if response is successful
+			if (!$response->success) {
+				throw new \Exception($response_body->description);
+			}
+
+			//check if response status is Success
+			if ($response_body->status == 'Success') {
+				//get the first of orderDetails
+				$order_detail = $response_body->orderDetails[0];
+
+				//return success
+				return [
+					'success' => true,
+					'message' => $response_body->description,
+					'data' => [
+						'order_status' => $order_detail->orderStatus,
+						'cost' => wc_price($order_detail->cost),
+						'order_detail' => $order_detail
+					]
+				];
+			}
+
+			//return error
+			return [
+				'success' => false,
+				'message' => $response_body->description,
+				'data' => null
+			];
+		} catch (\Exception $e) {
+			error_log("Fez Delivery Order Details Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 			return [
 				'success' => false,
 				'message' => $e->getMessage(),

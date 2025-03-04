@@ -27,8 +27,6 @@ if (!defined('ABSPATH')) {
  */
 class Admin_Core extends Base
 {
-
-
 	/**
 	 * Init
 	 *
@@ -95,6 +93,171 @@ class Admin_Core extends Base
 		add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
 		//woocommerce_checkout_order_created
 		add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+		//filter woocommerce_' . $this->order_type . '_list_table_columns
+		add_filter('woocommerce_shop_order_list_table_columns', array($this, 'fez_delivery_order_admin_list_column'), 10);
+		//woocommerce_' . $this->order_type . '_list_table_custom_column
+		add_action('woocommerce_shop_order_list_table_custom_column', array($this, 'fez_delivery_order_admin_list_column_content'), 10, 2);
+		//order edit page actions
+		add_action('woocommerce_admin_order_data_after_shipping_address', array($this, 'add_order_meta_box'), PHP_INT_MAX);
+		//add action to get fez delivery order details
+		add_action('wp_ajax_get_fez_delivery_order_details', array($this, 'get_fez_delivery_order_details'));
+		//listen for fez delivery label
+		$this->listen_for_fez_delivery_label();
+	}
+
+	/**
+	 * Listen for fez delivery label
+	 *
+	 * @return void
+	 */
+	public function listen_for_fez_delivery_label()
+	{
+		//check if fez delivery label is set
+		if (isset($_GET['fez_delivery_label']) && !empty($_GET['fez_delivery_label'])) {
+			//init fez shipping label
+			$fez_shipping_label = new Fez_Shipping_Label();
+			//generate shipping label
+			$fez_shipping_label->generate_shipping_label($_GET['fez_delivery_label']);
+			//exit
+			wp_die();
+		}
+	}
+
+	/**
+	 * Get fez delivery order details
+	 *
+	 * @return void
+	 */
+	public function get_fez_delivery_order_details()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce($_GET['nonce'], 'fez_delivery_admin_nonce')) {
+				throw new \Exception('Invalid nonce');
+			}
+
+			//get order id
+			$order_id = sanitize_text_field($_GET['order_id']);
+
+			//get order nos
+			$order_nos = sanitize_text_field($_GET['order_nos']);
+
+			//get fez core
+			$fez_core = Fez_Core::instance();
+
+			//get fez delivery order details
+			$response = $fez_core->getFezDeliveryOrderDetails($order_id, $order_nos);
+
+			//check if response is successful
+			if ($response['success']) {
+				//send success response
+				wp_send_json_success($response['data']);
+			} else {
+				//send error response
+				wp_send_json_error($response['message']);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Order Details Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error(array('message' => $e->getMessage()));
+		}
+	}
+
+	/**
+	 * Add order meta box
+	 *
+	 * @param mixed $order
+	 * @return void
+	 */
+	public function add_order_meta_box($order)
+	{
+		//get fez delivery order nos
+		$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
+		//check if fez delivery order nos is not empty
+		if (!empty($fez_delivery_order_nos)) {
+?>
+
+
+			<div class="fez-delivery-order-details">
+				<h3>
+					<img src="<?php echo FEZ_DELIVERY_ASSETS_URL; ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
+				</h3>
+
+				<p>Order No: <?php echo $fez_delivery_order_nos; ?></p>
+
+				<p>Status: <span class="fez-delivery-order-status-wc-order" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Getting details...</span></p>
+
+				<p>Cost: <span class="fez-delivery-order-cost-wc-order" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">--</span></p>
+
+				<div class="fez-delivery-order-buttons">
+					<a href="#" class="fez-delivery-order-details-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Manage on Fez</a>
+					<a href="<?php echo add_query_arg('fez_delivery_label', $fez_delivery_order_nos, admin_url('admin.php?page=wc-orders&id=' . $order->get_id())); ?>" class="fez-delivery-order-label-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Download Label</a>
+				</div>
+			</div>
+		<?php
+		}
+	}
+
+	/**
+	 * Fez delivery order admin list column
+	 *
+	 * @param array $columns
+	 * @return array
+	 */
+	public function fez_delivery_order_admin_list_column($columns)
+	{
+		//add new column
+		$columns['fez_delivery_order_nos'] = 'Fez Delivery';
+		//shipping label download
+		$columns['fez_delivery_shipping_label'] = 'Fez Shipping Label';
+		//move to second position
+		$columns = array_slice($columns, 0, 2, true) +
+			['fez_delivery_order_nos' => $columns['fez_delivery_order_nos']] +
+			['fez_delivery_shipping_label' => $columns['fez_delivery_shipping_label']] +
+			array_slice($columns, 2, count($columns) - 2, true);
+		//return columns
+		return $columns;
+	}
+
+	/**
+	 * Fez delivery order admin list column content
+	 *
+	 * @param string $column
+	 * @param mixed $order_id
+	 * @return void
+	 */
+	public function fez_delivery_order_admin_list_column_content($column, $order_id)
+	{
+		//check if column is fez_delivery_order_nos
+		switch ($column) {
+			case 'fez_delivery_order_nos':
+				//get order
+				$order = wc_get_order($order_id);
+				//get fez delivery order no
+				$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
+				//check if fez delivery order nos is not empty
+				if (!empty($fez_delivery_order_nos)) {
+					//echo fez delivery order nos
+					echo "<span class='fez-delivery-order-nos active'>✅ Synced</span>";
+				} else {
+					echo "<span class='fez-delivery-order-nos inactive'>❌ Not synced</span>";
+				}
+				break;
+			case 'fez_delivery_shipping_label':
+				//get order
+				$order = wc_get_order($order_id);
+				//get fez delivery order no
+				$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
+				//check if fez delivery order nos is not empty
+				if (!empty($fez_delivery_order_nos)) {
+					//echo fez delivery order nos
+					echo "<a href='" . add_query_arg('fez_delivery_label', $fez_delivery_order_nos, admin_url('admin.php?page=wc-orders&id=' . $order_id)) . "' class='fez-delivery-order-label-button'>Download Label</a>";
+				} else {
+					echo "<span class='fez-delivery-order-label-button inactive'>N/A</span>";
+				}
+				break;
+		}
 	}
 
 	/**
@@ -105,29 +268,86 @@ class Admin_Core extends Base
 	 */
 	public function save_fez_delivery_order_meta($order)
 	{
-		//check if order is an instance of WC_Order
-		if ($order && $order instanceof WC_Order) {
-			//get order id
-			$order_id = $order->get_id();
-		} else {
-			//get order id
-			$order_id = $order;
+		try {
+			//check if order is an instance of WC_Order
+			if ($order && $order instanceof WC_Order) {
+				//get order id
+				$order_id = $order->get_id();
+			} else {
+				//get order id
+				$order_id = $order;
+			}
+
+			//get order
+			$order = wc_get_order($order_id);
+
+			//get fez session
+			$fezsession = FezCoreSession::instance();
+
+			//check if delivery state label is set
+			if (!$fezsession->get('delivery_state_label')) {
+				throw new \Exception('Delivery state label is not set');
+			}
+
+			//get pickup state
+			$pickup_state = $fezsession->get('pickup_state_label');
+
+			//get total weight
+			$total_weight = $fezsession->get('total_weight');
+
+			//get delivery state
+			$delivery_state = $fezsession->get('delivery_state_label');
+
+			//get billing address
+			$billing_address = $order->get_address();
+
+			//customer name
+			$customer_name = $order->get_billing_first_name() . " " . $order->get_billing_last_name();
+
+			//customer phone
+			$customer_phone = $order->get_billing_phone();
+
+			$dataRequest = [
+				[
+					"recipientAddress" => $billing_address['address_1'],
+					"recipientState" => $delivery_state,
+					"recipientName" => $customer_name,
+					"recipientPhone" => $customer_phone,
+					"uniqueID" => "woocommerce_" . $order_id,
+					"BatchID" => "woocommerce_batch_" . $order_id,
+					"valueOfItem" => $order->get_total(),
+					"weight" => $total_weight,
+					"pickUpState" => $pickup_state
+				]
+			];
+
+			//get fez core
+			$fez_core = Fez_Core::instance();
+
+			//get delivery cost
+			$response = $fez_core->createOrder($dataRequest);
+
+			//check if response is successful
+			if ($response['success']) {
+				//update order meta
+				$order->update_meta_data('fez_delivery_order_nos', $response['data']->{'woocommerce_' . $order_id});
+				//add order note
+				$order->add_order_note('Fez Delivery Order Initiated: ' . $response['data']->{'woocommerce_' . $order_id});
+				//add message note
+				$order->add_order_note('Fez Delivery Order Note: ' . $response['message']);
+				//save order
+				$order->save();
+			} else {
+				error_log("Fez Delivery Order Error: " . $response['message']);
+				//add wc order note
+				$order->add_order_note('Fez Delivery Order Error: ' . $response['message']);
+				//save order
+				$order->save();
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Order Meta Error: " . $e->getMessage());
 		}
-
-		//get order
-		$order = wc_get_order($order_id);
-
-		$dataRequest = [
-			[
-				"recipientAddress" => "Idumota",
-				"recipientState" => "Lagos",
-				"recipientName" => "Femi",
-				"recipientPhone" => "08000000000000",
-				"uniqueID" => "KingOne-1234",
-				"BatchID" => "KingOne-1",
-				"valueOfItem" => "20000"
-			]
-		];
 	}
 
 	/**
@@ -183,6 +403,9 @@ class Admin_Core extends Base
 			//unset delivery cost
 			$fezsession = FezCoreSession::instance();
 			$fezsession->unset('delivery_cost');
+			$fezsession->unset('delivery_state_label');
+			$fezsession->unset('pickup_state_label');
+			$fezsession->unset('total_weight');
 
 			//return success
 			wp_send_json_success(array('message' => 'Delivery cost reset successfully'));
@@ -215,8 +438,29 @@ class Admin_Core extends Base
 				throw new \Exception('Delivery cost is empty, please try again');
 			}
 
+			//get delivery state label
+			$delivery_state_label = sanitize_text_field($_POST['delivery_state_label']);
+
+			//get pickup state label
+			$pickup_state_label = sanitize_text_field($_POST['pickup_state_label']);
+
+			//get total weight
+			$total_weight = sanitize_text_field($_POST['total_weight']);
+
+			//set session
 			$fezsession = FezCoreSession::instance();
+
+			//clear previous data
+			$fezsession->unset('delivery_cost');
+			$fezsession->unset('delivery_state_label');
+			$fezsession->unset('pickup_state_label');
+			$fezsession->unset('total_weight');
+
+			//set new data
 			$fezsession->set('delivery_cost', $delivery_cost);
+			$fezsession->set('delivery_state_label', $delivery_state_label);
+			$fezsession->set('pickup_state_label', $pickup_state_label);
+			$fezsession->set('total_weight', $total_weight);
 
 			//return success
 			wp_send_json_success(array('message' => 'Delivery cost applied successfully'));
@@ -303,7 +547,7 @@ class Admin_Core extends Base
 			error_log("Fez Delivery Cost Error: " . $e->getMessage());
 			//return error
 			wp_send_json_error(array(
-				'message' => 'Error getting delivery cost: ' . $e->getMessage(),
+				'message' => 'Error getting delivery cost: ' . $e->getMessage() . ' on line ' . $e->getLine() . ' in ' . $e->getFile(),
 				'cost' => 0
 			));
 		}
@@ -383,7 +627,7 @@ class Admin_Core extends Base
 
 		ob_start();
 		//html
-?>
+		?>
 		<div class='fez-connection-status-notice'>
 			<?php if (!empty($fez_delivery_user)) : ?>
 				<span class='fez-connection-status-connected'>
@@ -506,6 +750,8 @@ class Admin_Core extends Base
 			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_admin_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
+			//delete auth token
+			delete_transient('fez_delivery_auth_token_static');
 			//delete user option
 			delete_option('fez_delivery_user');
 			//return success
