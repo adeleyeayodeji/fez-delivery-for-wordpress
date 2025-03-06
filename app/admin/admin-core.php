@@ -14,6 +14,7 @@ namespace Fez_Delivery\Admin;
 use Fez_Delivery\Base;
 use WC_Fez_Delivery_Shipping_Method;
 use WC_Order;
+use WC_Order_Item_Shipping;
 
 //check for security
 if (!defined('ABSPATH')) {
@@ -97,12 +98,102 @@ class Admin_Core extends Base
 		add_filter('woocommerce_shop_order_list_table_columns', array($this, 'fez_delivery_order_admin_list_column'), 10);
 		//woocommerce_' . $this->order_type . '_list_table_custom_column
 		add_action('woocommerce_shop_order_list_table_custom_column', array($this, 'fez_delivery_order_admin_list_column_content'), 10, 2);
+		//bulk_actions-woocommerce_page_wc-orders
+		add_filter('bulk_actions-woocommerce_page_wc-orders', array($this, 'add_fez_delivery_order_bulk_action'), 10, 1);
+		//handle bulk action
+		add_filter('handle_bulk_actions-woocommerce_page_wc-orders', array($this, 'handle_fez_delivery_order_bulk_action'), 10, 3);
+		//admin_notices
+		add_action('admin_notices', array($this, 'fez_bulk_admin_notices'));
 		//order edit page actions
 		add_action('woocommerce_admin_order_data_after_shipping_address', array($this, 'add_order_meta_box'), PHP_INT_MAX);
 		//add action to get fez delivery order details
 		add_action('wp_ajax_get_fez_delivery_order_details', array($this, 'get_fez_delivery_order_details'));
 		//listen for fez delivery label
 		$this->listen_for_fez_delivery_label();
+	}
+
+	/**
+	 * fez_bulk_admin_notices
+	 *
+	 */
+	public function fez_bulk_admin_notices()
+	{
+		//check if fez delivery sync order is set
+		if (isset($_GET['fez_delivery_sync_order']) && !empty($_GET['processed_count'])) {
+
+			//get processed count
+			$count = intval($_REQUEST['processed_count']);
+
+			printf('<div class="notice notice-success fade is-dismissible"><p>' .
+				_n(
+					'Fez Delivery synced for %s Order.',
+					'Fez Delivery synced for %s Orders.',
+					$count,
+					'fez-delivery'
+				) . '</p></div>', $count);
+		}
+	}
+
+	/**
+	 * Handle fez delivery order bulk action
+	 *
+	 * @param string $redirect_url
+	 * @param string $action
+	 * @param array $order_ids
+	 * @return string
+	 */
+	public function handle_fez_delivery_order_bulk_action($redirect_url, $action, $order_ids)
+	{
+		//check if action is fez_delivery_sync_order
+		if ($action === 'fez_delivery_sync_order') {
+			$processed_ids = array(); // Initializing
+
+			//loop through order ids
+			foreach ($order_ids as $order_id) {
+				//get order
+				$order = wc_get_order($order_id);
+
+				//get fez delivery order nos
+				$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
+
+				//check if fez delivery order nos is not empty
+				if (!empty($fez_delivery_order_nos)) {
+					//skip order
+					continue;
+				}
+
+				//send order to fez server
+				$this->send_order_to_fez_server($order);
+
+				//add order id to processed ids
+				$processed_ids[] = $order_id;
+			}
+
+			// Adding the right query vars to the returned URL
+			$redirect_url = add_query_arg(array(
+				'fez_delivery_sync_order' => '1',
+				'processed_count' => count($processed_ids),
+				'processed_ids' => implode(',', $processed_ids),
+			), $redirect_url);
+		}
+		return $redirect_url;
+	}
+
+	/**
+	 * Add fez delivery order bulk action
+	 *
+	 * @param array $bulk_actions
+	 * @return array
+	 */
+	public function add_fez_delivery_order_bulk_action($bulk_actions)
+	{
+		$bulk_actions['fez_delivery_sync_order'] = 'Sync with Fez';
+		//sort to first position
+		$bulk_actions = array_slice($bulk_actions, 0, 1, true) +
+			['fez_delivery_sync_order' => $bulk_actions['fez_delivery_sync_order']] +
+			array_slice($bulk_actions, 1, count($bulk_actions) - 1, true);
+
+		return $bulk_actions;
 	}
 
 	/**
@@ -347,6 +438,144 @@ class Admin_Core extends Base
 		} catch (\Exception $e) {
 			//log
 			error_log("Fez Delivery Order Meta Error: " . $e->getMessage());
+		}
+	}
+
+	/**
+	 * Send order to fez server for already created orders
+	 *
+	 * @param WC_Order $order
+	 * @return void
+	 */
+	public function send_order_to_fez_server(WC_Order $order)
+	{
+		try {
+			//igonre if order country is not NG
+			if ($order->get_billing_country() !== 'NG') {
+				return;
+			}
+
+			//get customer billing state
+			$customer_billing_state = $order->get_billing_state();
+			//init fez core
+			$fez_core = Fez_Core::instance();
+
+			//get pickup state
+			$pickup_state = $fez_core->pickup_state;
+
+			//get woocommerce states
+			$woocommerce_states = WC()->countries->get_states("NG");
+
+			//get state from state code
+			$delivery_state_label = $woocommerce_states[$customer_billing_state];
+
+			//get state from state code
+			$pickup_state_label = $woocommerce_states[$pickup_state];
+
+			//order_id
+			$order_id = $order->get_id();
+
+			//get total weight
+			$total_weight = 0;
+			foreach ($order->get_items() as $item) {
+				$product_id = $item->get_product_id();
+				$total_weight += (float)get_post_meta($product_id, '_weight', true) ?: 3;
+			}
+
+			//get billing address
+			$billing_address = $order->get_address();
+
+			//customer name
+			$customer_name = $order->get_billing_first_name() . " " . $order->get_billing_last_name();
+
+			//customer phone
+			$customer_phone = $order->get_billing_phone();
+
+			//get the shiiping amount from fez
+			$shipping_amount = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight);
+
+			//check if shipping amount is successful
+			if (!$shipping_amount['success']) {
+				throw new \Exception('Shipping amount is not successful');
+			}
+
+			//get shipping amount
+			$shipping_amount = $shipping_amount['cost']->cost;
+
+			$dataRequest = [
+				[
+					"recipientAddress" => $billing_address['address_1'],
+					"recipientState" => $delivery_state_label,
+					"recipientName" => $customer_name,
+					"recipientPhone" => $customer_phone,
+					"uniqueID" => "woocommerce_" . $order_id,
+					"BatchID" => "woocommerce_batch_" . $order_id,
+					"valueOfItem" => $order->get_total(),
+					"weight" => $total_weight,
+					"pickUpState" => $pickup_state_label
+				]
+			];
+
+			//get delivery cost
+			$response = $fez_core->createOrder($dataRequest);
+
+			//check if response is successful
+			if ($response['success']) {
+				//update order meta
+				$order->update_meta_data('fez_delivery_order_nos', $response['data']->{'woocommerce_' . $order_id});
+				//add order note
+				$order->add_order_note('Fez Delivery Order Initiated: ' . $response['data']->{'woocommerce_' . $order_id});
+				//add message note
+				$order->add_order_note('Fez Delivery Order Note: ' . $response['message']);
+
+				//add note to order
+				$order->add_order_note('Fez Delivery synced via Admin Panel');
+
+
+				$items = (array) $order->get_items('shipping');
+
+				if (!empty($items)) {
+					// // Loop through shipping items
+					foreach ($items as $item) {
+						//get shipping method id
+						$shipping_method_id = $item->get_method_id();
+						//if shipping method id is fez_delivery
+						if ($shipping_method_id == "fez_delivery") {
+							$item->set_method_title(apply_filters('fez_delivery_shipping_method_label', "Fez Delivery"));
+							$item->set_total($shipping_amount);
+							$item->save();
+						}
+					}
+				} else {
+					// Get a new instance of the WC_Order_Item_Shipping Object
+					$item = new WC_Order_Item_Shipping();
+					//title
+					$item->set_method_title(apply_filters('fez_delivery_shipping_method_label', "Fez Delivery"));
+					//method id
+					$item->set_method_id('fez_delivery');
+					//total
+					$item->set_total($shipping_amount);
+					//add item to order
+					$order->add_item($item);
+				}
+
+				//recalculate order totals
+				$order->calculate_totals();
+
+				//save order
+				$order->save();
+			} else {
+				error_log("Fez Delivery Order Error: " . $response['message']);
+				//add wc order note
+				$order->add_order_note('Fez Delivery Order Error: ' . $response['message']);
+				//add note to order
+				$order->add_order_note('Fez Delivery sync failed via Admin Panel');
+				//save order
+				$order->save();
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Order Send Error: " . $e->getMessage());
 		}
 	}
 
