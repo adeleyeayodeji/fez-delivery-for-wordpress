@@ -61,7 +61,7 @@ class Fez_Shipping_Label extends Base
 	{
 		try {
 			//empty temp directory
-			exec('rm -rf ' . wp_upload_dir()['basedir'] . '/mpdf/*');
+			exec('rm -rf ' . wp_upload_dir()['basedir'] . '/fez-delivery/mpdf/*');
 		} catch (\Exception $e) {
 			error_log('Temp File Deletion Error: ' . $e->getMessage());
 		}
@@ -176,7 +176,7 @@ class Fez_Shipping_Label extends Base
 			'margin_right' => 5,
 			'margin_top' => 5,
 			'margin_bottom' => 5,
-			'tempDir' => wp_upload_dir()['basedir'] . '/mpdf'
+			'tempDir' => wp_upload_dir()['basedir'] . '/fez-delivery/mpdf'
 		]);
 
 		// Enable background images and CSS styles
