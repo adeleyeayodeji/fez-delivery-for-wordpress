@@ -35,8 +35,8 @@
   ],
   "require": {
     "php": ">=7.4",
-    "mpdf/mpdf": "^8.2",
-    "endroid/qr-code": "^4.6"
+    "endroid/qr-code": "^4.6",
+    "mpdf/mpdf": "^8.2"
   },
   "require-dev": {
     "phpcsstandards/phpcsutils": "^1.0",

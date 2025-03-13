@@ -47,12 +47,17 @@ module.exports = function (grunt) {
 							"fez-delivery.php",
 							"readme.md",
 							"composer.json",
+							// Exclude files
+							"!**/*.zip",
+							"!**/*.log",
+							"!build-phar.sh",
+							"!**/*build-phar.sh",
 						],
 						dest: "fez-delivery/",
 						filter: function (filepath) {
 							// Ignore .logs, .gitignore, .map files, and .css files in assets/js
 							return !filepath.match(
-								/\.logs$|\.gitignore$|\.map$|assets\/js\/.*\.css$/
+								/\.logs$|\.gitignore$|\.map$|assets\/js\/.*\.css$/,
 							);
 						},
 					},
@@ -82,12 +87,37 @@ module.exports = function (grunt) {
 						done(false);
 					} else {
 						grunt.log.writeln(stdout);
+						grunt.log.writeln("Composer optimise completed");
 						done();
 					}
-				}
+				},
 			);
-		}
+		},
 	);
+
+	//register composer post-update-cmd
+	// grunt.registerTask(
+	// 	"composer_post_update_cmd",
+	// 	"Run composer post-update-cmd",
+	// 	function () {
+	// 		const done = this.async();
+	// 		require("child_process").exec(
+	// 			"composer run-script post-update-cmd",
+	// 			(err, stdout, stderr) => {
+	// 				if (err) {
+	// 					grunt.log.error(err);
+	// 					done(false);
+	// 				} else {
+	// 					grunt.log.writeln(stdout);
+	// 					grunt.log.writeln(
+	// 						"Composer cleaned up fonts from vendor",
+	// 					);
+	// 					done();
+	// 				}
+	// 			},
+	// 		);
+	// 	},
+	// );
 
 	// Register the delete_readme task
 	grunt.registerTask("delete_readme", "Delete README.md", function () {
@@ -125,6 +155,7 @@ module.exports = function (grunt) {
 	// Register the build task
 	grunt.registerTask("build", [
 		"composer_optimise", // Optimize composer dependencies
+		// "composer_post_update_cmd", // Run composer post-update-cmd
 		"empty_archive", // Empty archive folder
 		"readme", // Convert README.txt to README.md
 		"archive_plugin", // Create a zip archive of the plugin

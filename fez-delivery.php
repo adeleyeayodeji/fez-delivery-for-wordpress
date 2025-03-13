@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name:     Fez Delivery
- * Plugin URI:      https://www.fezdelivery.co/
+ * Plugin URI:      https://www.fezdelivery.co/wp-plugins/fez-delivery/
  * Description:     Fez Delivery is a WordPress plugin that allows you to manage your delivery orders.
  * Author:          Fez Team
  * Author URI:      https://www.fezdelivery.co/
