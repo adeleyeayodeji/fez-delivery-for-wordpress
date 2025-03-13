@@ -926,7 +926,7 @@ class Admin_Core extends Base
 			//check if response is successful
 			if ($response['success']) {
 				//get old options
-				$old_options = get_option('woocommerce_fez_delivery_settings');
+				$old_options = get_option('woocommerce_fez_delivery_settings', []);
 
 				//save to options to woocommerce
 				$woo_args = [
@@ -936,8 +936,14 @@ class Admin_Core extends Base
 					'enabled' => $enabled ? 'yes' : 'no',
 					'fez_pickup_state' => $fez_pickup_state
 				];
-				//update woocommerce options
-				update_option('woocommerce_fez_delivery_settings', array_merge($old_options, $woo_args));
+				//check if old options is not empty
+				if (!empty($old_options)) {
+					//update woocommerce options
+					update_option('woocommerce_fez_delivery_settings', array_merge($old_options, $woo_args));
+				} else {
+					//update woocommerce options
+					update_option('woocommerce_fez_delivery_settings', $woo_args);
+				}
 
 				//set fez_delivery_user
 				update_option("fez_delivery_user", $response['data']);

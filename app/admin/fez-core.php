@@ -108,39 +108,44 @@ class Fez_Core extends Base
 	 */
 	public function getFezMode($fez_mode = null)
 	{
-		$fez_options = get_option('woocommerce_fez_delivery_settings');
-		//get fez_delivery_user
-		$fez_delivery_user = get_option('fez_delivery_user');
-		//check if fez_delivery_user is set
-		if (isset($fez_delivery_user)) {
-			$this->fez_delivery_user = $fez_delivery_user;
+		try {
+
+			$fez_options = get_option('woocommerce_fez_delivery_settings');
+			//get fez_delivery_user
+			$fez_delivery_user = get_option('fez_delivery_user');
+			//check if fez_delivery_user is set
+			if (isset($fez_delivery_user)) {
+				$this->fez_delivery_user = $fez_delivery_user;
+			}
+
+			//check if data is set
+			if (isset($fez_options['fez_mode'])) {
+				$this->fez_mode = isset($fez_options['fez_mode']) ? $fez_options['fez_mode'] : 'sandbox';
+			} else {
+				$this->fez_mode = 'sandbox';
+			}
+
+			//check if $fez_mode is set
+			if ($fez_mode) {
+				$this->fez_mode = $fez_mode;
+			}
+
+			//check if fez mode is production
+			if ($this->fez_mode == 'production') {
+				$this->api_url = FEZ_DELIVERY_PRODUCTION_API_URL;
+			} else {
+				$this->api_url = FEZ_DELIVERY_SANDBOX_API_URL;
+			}
+
+			//get the user id and password
+			$this->user_id = isset($fez_options['fez_username']) ? $fez_options['fez_username'] : '';
+			$this->password = isset($fez_options['fez_password']) ? $fez_options['fez_password'] : '';
+
+			//get the pickup state
+			$this->pickup_state = isset($fez_options['fez_pickup_state']) ? $fez_options['fez_pickup_state'] : '';
+		} catch (\Exception $e) {
+			error_log("Fez Core Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 		}
-
-		//check if data is set
-		if (isset($fez_options['fez_mode'])) {
-			$this->fez_mode = $fez_options['fez_mode'];
-		} else {
-			$this->fez_mode = 'sandbox';
-		}
-
-		//check if $fez_mode is set
-		if ($fez_mode) {
-			$this->fez_mode = $fez_mode;
-		}
-
-		//check if fez mode is production
-		if ($this->fez_mode == 'production') {
-			$this->api_url = FEZ_DELIVERY_PRODUCTION_API_URL;
-		} else {
-			$this->api_url = FEZ_DELIVERY_SANDBOX_API_URL;
-		}
-
-		//get the user id and password
-		$this->user_id = $fez_options['fez_username'];
-		$this->password = $fez_options['fez_password'];
-
-		//get the pickup state
-		$this->pickup_state = $fez_options['fez_pickup_state'];
 	}
 
 	/**
@@ -153,16 +158,16 @@ class Fez_Core extends Base
 		try {
 
 			// Get cached auth token
-			$auth_token = get_transient('fez_delivery_auth_token_static');
+			// $auth_token = get_transient('fez_delivery_auth_token_static');
 
-			// Check if valid and not expired
-			if ($auth_token && isset($auth_token['expireToken']) && strtotime($auth_token['expireToken']) > time()) {
-				return [
-					'success' => true,
-					'message' => 'User authenticated successfully',
-					'data' => $auth_token
-				];
-			}
+			// // Check if valid and not expired
+			// if ($auth_token && isset($auth_token['expireToken']) && strtotime($auth_token['expireToken']) > time()) {
+			// 	return [
+			// 		'success' => true,
+			// 		'message' => 'User authenticated successfully',
+			// 		'data' => $auth_token
+			// 	];
+			// }
 
 			// Prepare credentials
 			$request_args = !empty($user_credentials) ? $user_credentials : [
@@ -200,11 +205,11 @@ class Fez_Core extends Base
 			];
 
 			// Calculate expiration time difference
-			$current_timestamp = time();
-			$time_difference = max($expire_timestamp - $current_timestamp, 1); // Ensure at least 1 second
+			// $current_timestamp = time();
+			// $time_difference = max($expire_timestamp - $current_timestamp, 1); // Ensure at least 1 second
 
-			// Store in transient with expiration
-			set_transient('fez_delivery_auth_token_static', $response_data, $time_difference);
+			// // Store in transient with expiration
+			// set_transient('fez_delivery_auth_token_static', $response_data, $time_difference);
 
 			return [
 				'success' => true,
