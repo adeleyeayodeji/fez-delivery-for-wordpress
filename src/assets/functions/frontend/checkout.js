@@ -60,6 +60,10 @@ jQuery(document).ready(function ($) {
 	 * @param {string} message
 	 */
 	window.showFezDeliveryError = (message) => {
+		//check if message matched "Invalid session" then ignore it
+		if (message.includes("Invalid session")) {
+			return;
+		}
 		//create a div for woocommerce notice
 		var notice = jQuery(
 			"<div class='woocommerce-error woocommerce-error-fez-delivery'>" +
@@ -236,6 +240,11 @@ jQuery(document).ready(function ($) {
 				if (response.success) {
 					//show delivery cost
 					showDeliveryCost(response.data.cost.cost, response.data);
+					//set timeout
+					setTimeout(() => {
+						//trigger click on fez-delivery-cta-button
+						jQuery(".fez-delivery-cta-button").trigger("click");
+					}, 1000);
 				} else {
 					//show error
 					showFezDeliveryError(response.data.message);

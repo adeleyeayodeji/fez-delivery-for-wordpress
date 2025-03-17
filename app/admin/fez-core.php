@@ -156,19 +156,6 @@ class Fez_Core extends Base
 	public function authenticateUser($user_credentials = [])
 	{
 		try {
-
-			// Get cached auth token
-			// $auth_token = get_transient('fez_delivery_auth_token_static');
-
-			// // Check if valid and not expired
-			// if ($auth_token && isset($auth_token['expireToken']) && strtotime($auth_token['expireToken']) > time()) {
-			// 	return [
-			// 		'success' => true,
-			// 		'message' => 'User authenticated successfully',
-			// 		'data' => $auth_token
-			// 	];
-			// }
-
 			// Prepare credentials
 			$request_args = !empty($user_credentials) ? $user_credentials : [
 				'user_id' => $this->user_id,
@@ -204,13 +191,6 @@ class Fez_Core extends Base
 				'expireToken' => $body->authDetails->expireToken
 			];
 
-			// Calculate expiration time difference
-			// $current_timestamp = time();
-			// $time_difference = max($expire_timestamp - $current_timestamp, 1); // Ensure at least 1 second
-
-			// // Store in transient with expiration
-			// set_transient('fez_delivery_auth_token_static', $response_data, $time_difference);
-
 			return [
 				'success' => true,
 				'message' => 'User authenticated successfully',
@@ -245,7 +225,7 @@ class Fez_Core extends Base
 			}
 
 			//get secret key
-			$secret_key = $auth_token["data"]['data']->orgDetails->{'secret-key'};
+			$secret_key = $auth_token["data"]["data"]->orgDetails->{'secret-key'};
 
 			$url = $this->api_url . 'v1/order/cost';
 
@@ -314,7 +294,7 @@ class Fez_Core extends Base
 			}
 
 			//get secret key
-			$secret_key = $this->fez_delivery_user["data"]->orgDetails->{'secret-key'};
+			$secret_key = $auth_token["data"]["data"]->orgDetails->{'secret-key'};
 
 			$url = $this->api_url . 'v1/order';
 			$headers = [
@@ -363,7 +343,7 @@ class Fez_Core extends Base
 			$auth_token = $this->authenticateUser();
 
 			//get secret key
-			$secret_key = $this->fez_delivery_user["data"]->orgDetails->{'secret-key'};
+			$secret_key = $auth_token["data"]["data"]->orgDetails->{'secret-key'};
 
 			//https://apisandbox.fezdelivery.co/v1/orders/JHAZ27012319
 			$url = $this->api_url . 'v1/orders/' . $order_nos;

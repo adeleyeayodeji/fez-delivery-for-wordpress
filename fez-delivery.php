@@ -38,6 +38,10 @@ define('FEZ_DELIVERY_ASSETS_URL', FEZ_DELIVERY_URL . '/assets/');
 define('FEZ_DELIVERY_SANDBOX_API_URL', 'https://apisandbox.fezdelivery.co/');
 //production api url
 define('FEZ_DELIVERY_PRODUCTION_API_URL', 'https://api.fezdelivery.co/');
+//sandbox tracking url
+define('FEZ_DELIVERY_SANDBOX_TRACKING_URL', 'https://d2pqv4mo6dthx7.cloudfront.net/track-delivery/');
+//production tracking url
+define('FEZ_DELIVERY_PRODUCTION_TRACKING_URL', 'https://web.fezdelivery.co/track-delivery/');
 
 //load the plugin
 require_once __DIR__ . '/vendor/autoload.php';

@@ -267,6 +267,16 @@ class Admin_Core extends Base
 		$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
 		//check if fez delivery order nos is not empty
 		if (!empty($fez_delivery_order_nos)) {
+			//get fez core
+			$fez_core = Fez_Core::instance();
+			//get fez mode
+			$fez_mode = $fez_core->fez_mode;
+			//check if fez mode is sandbox
+			if ($fez_mode == 'sandbox') {
+				$fez_delivery_url = FEZ_DELIVERY_SANDBOX_TRACKING_URL;
+			} else {
+				$fez_delivery_url = FEZ_DELIVERY_PRODUCTION_TRACKING_URL;
+			}
 ?>
 
 
@@ -282,7 +292,7 @@ class Admin_Core extends Base
 				<p>Cost: <span class="fez-delivery-order-cost-wc-order" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">--</span></p>
 
 				<div class="fez-delivery-order-buttons">
-					<a href="#" class="fez-delivery-order-details-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Manage on Fez</a>
+					<a href="<?php echo $fez_delivery_url . $fez_delivery_order_nos; ?>" class="fez-delivery-order-details-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>" target="_blank">Track Delivery</a>
 					<a href="<?php echo add_query_arg('fez_delivery_label', $fez_delivery_order_nos, admin_url('admin.php?page=wc-orders&id=' . $order->get_id())); ?>" class="fez-delivery-order-label-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Download Label</a>
 				</div>
 			</div>
@@ -398,6 +408,19 @@ class Admin_Core extends Base
 			//customer phone
 			$customer_phone = $order->get_billing_phone();
 
+			//$order_items
+			$order_items = $order->get_items();
+
+			$data_items_message = "";
+
+			//loop through cart items
+			foreach ($order_items as $product_id => $item) {
+				//append to data items message
+				$data_items_message .= "{$item->get_quantity()} of {$item->get_name()} at {$item->get_total()}, ";
+				//add new line
+				$data_items_message .= "\n";
+			}
+
 			$dataRequest = [
 				[
 					"recipientAddress" => $billing_address['address_1'],
@@ -408,7 +431,8 @@ class Admin_Core extends Base
 					"BatchID" => "woocommerce_batch_" . $order_id,
 					"valueOfItem" => $order->get_total(),
 					"weight" => $total_weight,
-					"pickUpState" => $pickup_state
+					"pickUpState" => $pickup_state,
+					"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message
 				]
 			];
 
