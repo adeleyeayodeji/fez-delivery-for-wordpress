@@ -300,7 +300,8 @@ class Fez_Core extends Base
 			$headers = [
 				'Content-Type' => 'application/json',
 				'secret-key'   => $secret_key,
-				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
+				'Authorization' => 'Bearer ' . $auth_token['data']['authToken'],
+				'orderRequestSource' => 'Wordpress Plugin'
 			];
 
 			//create order

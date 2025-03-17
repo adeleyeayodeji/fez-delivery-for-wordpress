@@ -432,7 +432,8 @@ class Admin_Core extends Base
 					"valueOfItem" => $order->get_total(),
 					"weight" => $total_weight,
 					"pickUpState" => $pickup_state,
-					"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message
+					"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
+					"orderRequestSource" => "Wordpress Plugin"
 				]
 			];
 
