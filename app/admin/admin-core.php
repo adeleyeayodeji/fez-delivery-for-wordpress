@@ -91,7 +91,7 @@ class Admin_Core extends Base
 		// Add shipping icon to the shipping label
 		add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_shipping_icon'), PHP_INT_MAX, 2);
 		//woocommerce_checkout_update_order_meta
-		add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+		// add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
 		//woocommerce_checkout_order_created
 		add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
 		//filter woocommerce_' . $this->order_type . '_list_table_columns
