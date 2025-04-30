@@ -92,8 +92,7 @@ class Admin_Core extends Base
 		add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_shipping_icon'), PHP_INT_MAX, 2);
 		//woocommerce_checkout_update_order_meta
 		// add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
-		//woocommerce_checkout_order_created
-		add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+		$this->fezCreateOrderCondition();
 		//filter woocommerce_' . $this->order_type . '_list_table_columns
 		add_filter('woocommerce_shop_order_list_table_columns', array($this, 'fez_delivery_order_admin_list_column'), 10);
 		//woocommerce_' . $this->order_type . '_list_table_custom_column
@@ -110,6 +109,40 @@ class Admin_Core extends Base
 		add_action('wp_ajax_get_fez_delivery_order_details', array($this, 'get_fez_delivery_order_details'));
 		//listen for fez delivery label
 		$this->listen_for_fez_delivery_label();
+	}
+
+	/**
+	 * fezCreateOrderCondition
+	 *
+	 * @return void
+	 */
+	public function fezCreateOrderCondition()
+	{
+		try {
+			//get create_fez_order_condition
+			$fez_core = Fez_Core::instance();
+			//get create_fez_order_condition
+			$create_fez_order_condition = $fez_core->create_fez_order_condition;
+
+			//switch on create_fez_order_condition
+			switch ($create_fez_order_condition) {
+				case 'processing':
+					//woocommerce_checkout_order_created
+					add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+					break;
+				case 'pending':
+					//on order pending
+					add_action('woocommerce_order_status_pending', array($this, 'send_order_to_fez_server'), PHP_INT_MAX);
+					break;
+				case 'completed':
+					//on order completed
+					add_action('woocommerce_order_status_completed', array($this, 'send_order_to_fez_server'), PHP_INT_MAX);
+					break;
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Order Condition Error: " . $e->getMessage());
+		}
 	}
 
 	/**
@@ -382,6 +415,13 @@ class Admin_Core extends Base
 			//get order
 			$order = wc_get_order($order_id);
 
+			//check if fez delivery order nos is not empty
+			$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
+			if (!empty($fez_delivery_order_nos)) {
+				//return
+				return false;
+			}
+
 			//get fez session
 			$fezsession = FezCoreSession::instance();
 
@@ -392,6 +432,11 @@ class Admin_Core extends Base
 
 			//get pickup state
 			$pickup_state = $fezsession->get('pickup_state_label');
+
+			//check if pickup state is not set
+			if (empty($pickup_state)) {
+				throw new \Exception('Pickup state label is not set');
+			}
 
 			//get total weight
 			$total_weight = $fezsession->get('total_weight');
@@ -451,6 +496,8 @@ class Admin_Core extends Base
 				$order->add_order_note('Fez Delivery Order Initiated: ' . $response['data']->{'woocommerce_' . $order_id});
 				//add message note
 				$order->add_order_note('Fez Delivery Order Note: ' . $response['message']);
+				//add meta
+				update_post_meta($order_id, 'fez_delivery_order_nos', $response['data']->{'woocommerce_' . $order_id});
 				//save order
 				$order->save();
 			} else {
@@ -469,12 +516,23 @@ class Admin_Core extends Base
 	/**
 	 * Send order to fez server for already created orders
 	 *
-	 * @param WC_Order $order
+	 * @param mixed $order
 	 * @return void
 	 */
-	public function send_order_to_fez_server(WC_Order $order)
+	public function send_order_to_fez_server($order)
 	{
 		try {
+			//check if order is an instance of WC_Order
+			if ($order && $order instanceof WC_Order) {
+				//get order id
+				$order_id = $order->get_id();
+			} else {
+				//get order
+				$order = wc_get_order($order);
+				//get order id
+				$order_id = $order->get_id();
+			}
+
 			//igonre if order country is not NG
 			if ($order->get_billing_country() !== 'NG') {
 				return;
@@ -504,7 +562,7 @@ class Admin_Core extends Base
 			$total_weight = 0;
 			foreach ($order->get_items() as $item) {
 				$product_id = $item->get_product_id();
-				$total_weight += (float)get_post_meta($product_id, '_weight', true) ?: 3;
+				$total_weight += (float)get_post_meta($product_id, '_weight', true) ?: 0;
 			}
 
 			//get billing address
@@ -773,7 +831,7 @@ class Admin_Core extends Base
 			//get total weight
 			$total_weight = 0;
 			foreach ($cart_items as $item) {
-				$total_weight += !empty($item['data']->get_weight()) ? (float)$item['data']->get_weight() : 3;
+				$total_weight += !empty($item['data']->get_weight()) ? (float)$item['data']->get_weight() : 0;
 			}
 
 			//get delivery cost
@@ -924,6 +982,8 @@ class Admin_Core extends Base
 			$enabled = absint($_POST['woocommerce_fez_delivery_enabled']);
 			//get woocommerce_fez_delivery_fez_pickup_state
 			$fez_pickup_state = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_pickup_state']);
+			//get woocommerce_fez_delivery_create_fez_order_condition
+			$create_fez_order_condition = sanitize_text_field($_POST['woocommerce_fez_delivery_create_fez_order_condition']);
 
 			//validate username and password
 			if (empty($fez_username) || empty($fez_password)) {
@@ -959,7 +1019,8 @@ class Admin_Core extends Base
 					'fez_username' => $fez_username,
 					'fez_password' => $fez_password,
 					'enabled' => $enabled ? 'yes' : 'no',
-					'fez_pickup_state' => $fez_pickup_state
+					'fez_pickup_state' => $fez_pickup_state,
+					'create_fez_order_condition' => $create_fez_order_condition
 				];
 				//check if old options is not empty
 				if (!empty($old_options)) {

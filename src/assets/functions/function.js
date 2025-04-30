@@ -43,7 +43,7 @@ jQuery(document).ready(function ($) {
 						.find("button[type='button']")
 						.text("Save and Connect");
 					//show error message
-					alert(response.message);
+					alert(response.data.message);
 				}
 				//remove is-busy class
 				$form.find("button[type='button']").removeClass("is-busy");

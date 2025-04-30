@@ -60,6 +60,12 @@ class Fez_Core extends Base
 	public $fez_delivery_user = [];
 
 	/**
+	 * Create fez order condition
+	 * @var string
+	 */
+	public $create_fez_order_condition;
+
+	/**
 	 * Constructor
 	 * @return void
 	 */
@@ -143,6 +149,9 @@ class Fez_Core extends Base
 
 			//get the pickup state
 			$this->pickup_state = isset($fez_options['fez_pickup_state']) ? $fez_options['fez_pickup_state'] : '';
+
+			//get the create fez order condition
+			$this->create_fez_order_condition = isset($fez_options['create_fez_order_condition']) ? $fez_options['create_fez_order_condition'] : 'processing';
 		} catch (\Exception $e) {
 			error_log("Fez Core Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 		}
@@ -253,6 +262,12 @@ class Fez_Core extends Base
 
 			//check if response status is Success
 			if ($response_body->status == 'Success') {
+				//check if $response_body->Cost is an array
+				if (is_array($response_body->Cost)) {
+					//get the first item
+					$response_body->Cost = $response_body->Cost[0];
+				}
+
 				//return success
 				return [
 					'success' => true,

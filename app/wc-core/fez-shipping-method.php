@@ -133,6 +133,19 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				"description" => "",
 				"default" => "",
 				"class" => "fez-connection-status",
+			),
+			//select for after order status
+			"create_fez_order_condition" => array(
+				"title" => __("Create Fez Order Condition"),
+				"type" => "select",
+				"description" => __("Select the woocommerce order status to create a Fez order"),
+				"default" => "processing",
+				"options" => array(
+					"processing" => __("New Order"),
+					"completed" => __("Completed"),
+					"pending" => __("Pending")
+				),
+				"disabled" => !empty($fez_delivery_user) ? true : false,
 			)
 		);
 	}
