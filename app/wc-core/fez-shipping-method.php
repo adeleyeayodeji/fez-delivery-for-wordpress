@@ -29,8 +29,8 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 	{
 		$this->id                 = 'fez_delivery';
 		$this->instance_id           = absint($instance_id);
-		$this->method_title       = __('Fez Delivery');
-		$this->method_description = __('Enjoy reliable and efficient shipping solutions for local and global delivery needs.');
+		$this->method_title       = __('Fez Delivery', 'fez-delivery');
+		$this->method_description = __('Enjoy reliable and efficient shipping solutions for local and global delivery needs.', 'fez-delivery');
 
 		$this->supports  = array(
 			'settings',
@@ -78,39 +78,39 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 		//init form
 		$this->form_fields = array(
 			'enabled' => array(
-				'title'     => __('Enable/Disable'),
+				'title'     => __('Enable/Disable', 'fez-delivery'),
 				'type'         => 'checkbox',
-				'label'     => __('Enable this shipping method'),
+				'label'     => __('Enable this shipping method', 'fez-delivery'),
 				'default'     => 'no',
 				'disabled' => !empty($fez_delivery_user) ? true : false,
 			),
 			//fez mode
 			"fez_mode" => array(
-				"title" => __("Fez Mode"),
+				"title" => __("Fez Mode", 'fez-delivery'),
 				"type" => "select",
-				"description" => __("Select production or sandbox mode, production mode will use for live orders"),
+				"description" => __("Select production or sandbox mode, production mode will use for live orders", 'fez-delivery'),
 				"placeholder" => "sandbox",
 				"default" => "sandbox",
 				"disabled" => !empty($fez_delivery_user) ? true : false,
 				"options" => array(
-					"sandbox" => __("Sandbox"),
-					"production" => __("Production"),
+					"sandbox" => __("Sandbox", 'fez-delivery'),
+					"production" => __("Production", 'fez-delivery'),
 				),
 			),
 			//fez username/email
 			"fez_username" => array(
-				"title" => __("Fez Username/Email"),
+				"title" => __("Fez Username/Email", 'fez-delivery'),
 				"type" => "text",
-				"description" => __("Enter your Fez username or email"),
+				"description" => __("Enter your Fez username or email", 'fez-delivery'),
 				"placeholder" => "username@example.com",
 				"default" => "",
 				"disabled" => !empty($fez_delivery_user) ? true : false,
 			),
 			//fez password
 			"fez_password" => array(
-				"title" => __("Fez Password"),
+				"title" => __("Fez Password", 'fez-delivery'),
 				"type" => !empty($fez_delivery_user) ? "hidden" : "password",
-				"description" => __("Enter your Fez password"),
+				"description" => __("Enter your Fez password", 'fez-delivery'),
 				"placeholder" => "********",
 				"default" => "",
 				"class" => !empty($fez_delivery_user) ? "fez-password-hidden" : "fez-password",
@@ -118,9 +118,9 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 			),
 			//fez pickup state
 			"fez_pickup_state" => array(
-				"title" => __("Fez Pickup State"),
+				"title" => __("Fez Pickup State", 'fez-delivery'),
 				"type" => "select",
-				"description" => __("Select your Fez pickup state"),
+				"description" => __("Select your Fez pickup state", 'fez-delivery'),
 				"placeholder" => "LA",
 				"default" => "LA",
 				"options" => $woocommerce_states,
@@ -128,7 +128,7 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 			),
 			//add connection status
 			"connection_status" => array(
-				"title" => __("Connection Status"),
+				"title" => __("Connection Status", 'fez-delivery'),
 				"type" => "readonly",
 				"description" => "",
 				"default" => "",
@@ -136,14 +136,14 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 			),
 			//select for after order status
 			"create_fez_order_condition" => array(
-				"title" => __("Create Fez Order Condition"),
+				"title" => __("Create Fez Order Condition", 'fez-delivery'),
 				"type" => "select",
-				"description" => __("Select the woocommerce order status to create a Fez order"),
+				"description" => __("Select the woocommerce order status to create a Fez order", 'fez-delivery'),
 				"default" => "processing",
 				"options" => array(
-					"processing" => __("New Order"),
-					"completed" => __("Completed"),
-					"pending" => __("Pending")
+					"processing" => __("New Order", 'fez-delivery'),
+					"completed" => __("Completed", 'fez-delivery'),
+					"pending" => __("Pending", 'fez-delivery')
 				),
 				"disabled" => !empty($fez_delivery_user) ? true : false,
 			)

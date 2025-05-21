@@ -44,6 +44,8 @@ module.exports = function (grunt) {
 							"assets/**",
 							"core/**",
 							"vendor/**",
+							//temporary directory
+							"src/**",
 							"fez-delivery.php",
 							"readme.md",
 							"composer.json",

@@ -104,7 +104,12 @@ class Fez_Core extends Base
 	 */
 	public function fez_delivery_disabled_notice()
 	{
-		echo '<div class="error notice is-dismissible"><p>' . __('Fez Delivery is disabled. Please enable it in the WooCommerce settings. <a href="' . admin_url('admin.php?page=wc-settings&tab=shipping&section=fez_delivery') . '">Settings</a>', 'fez-delivery') . '</p></div>';
+		echo sprintf(
+			'<div class="error notice is-dismissible"><p>%s <a href="%s">%s</a></p></div>',
+			esc_html__('Fez Delivery is disabled. Please enable it in the WooCommerce settings.', 'fez-delivery'),
+			esc_url(admin_url('admin.php?page=wc-settings&tab=shipping&section=fez_delivery')),
+			esc_html__('Settings', 'fez-delivery')
+		);
 	}
 
 	/**

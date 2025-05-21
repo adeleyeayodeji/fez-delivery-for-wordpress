@@ -60,13 +60,55 @@ class Fez_Shipping_Label extends Base
 	private function delete_temp_files()
 	{
 		try {
-			//empty temp directory
-			exec('rm -rf ' . wp_upload_dir()['basedir'] . '/fez-delivery/mpdf/*');
+			$temp_dir = wp_upload_dir()['basedir'] . '/fez-delivery/mpdf';
+
+			// Check if directory exists
+			if (!is_dir($temp_dir)) {
+				return;
+			}
+
+			// Get all files in the directory
+			$files = glob($temp_dir . '/*');
+
+			// Delete each file
+			foreach ($files as $file) {
+				if (is_file($file)) {
+					unlink($file);
+				} elseif (is_dir($file)) {
+					// Recursively delete subdirectories
+					$this->delete_directory($file);
+				}
+			}
 		} catch (\Exception $e) {
 			error_log('Temp File Deletion Error: ' . $e->getMessage());
 		}
 	}
 
+	/**
+	 * Recursively delete a directory and its contents
+	 *
+	 * @param string $dir Directory path
+	 * @return bool
+	 */
+	private function delete_directory($dir)
+	{
+		if (!is_dir($dir)) {
+			return false;
+		}
+
+		$files = array_diff(scandir($dir), array('.', '..'));
+
+		foreach ($files as $file) {
+			$path = $dir . '/' . $file;
+			if (is_dir($path)) {
+				$this->delete_directory($path);
+			} else {
+				unlink($path);
+			}
+		}
+
+		return rmdir($dir);
+	}
 
 	/**
 	 * Add style to mpdf
@@ -209,31 +251,31 @@ class Fez_Shipping_Label extends Base
 
 				<div class="info">
 					<div class="info-item">
-						<strong>Destination:</strong> <span><?php echo $order_detail->manifest->pickUpState ?> - <?php echo $order_detail->manifest->dropOffState ?></span>
+						<strong>Destination:</strong> <span><?php echo esc_html($order_detail->manifest->pickUpState) ?> - <?php echo esc_html($order_detail->manifest->dropOffState) ?></span>
 					</div>
 					<div class="info-item">
-						<strong>Order ID:</strong> <span><?php echo $order_detail->orderNo ?></span>
+						<strong>Order ID:</strong> <span><?php echo esc_html($order_detail->orderNo) ?></span>
 					</div>
 					<div class="info-item">
-						<strong>Recipient Name:</strong> <span><?php echo $order_detail->manifest->recipientName ?></span>
+						<strong>Recipient Name:</strong> <span><?php echo esc_html($order_detail->manifest->recipientName) ?></span>
 					</div>
 					<div class="info-item">
-						<strong>Recipient Phone:</strong> <span><?php echo $order_detail->manifest->recipientPhone ?></span>
+						<strong>Recipient Phone:</strong> <span><?php echo esc_html($order_detail->manifest->recipientPhone) ?></span>
 					</div>
 					<div class="info-item">
-						<strong>Recipient Address:</strong> <span><?php echo $order_detail->manifest->recipientAddress ?></span>
+						<strong>Recipient Address:</strong> <span><?php echo esc_html($order_detail->manifest->recipientAddress) ?></span>
 					</div>
 					<div class="info-item">
-						<strong>Content Description:</strong> <span><?php echo $order_detail->manifest->description ?></span>
+						<strong>Content Description:</strong> <span><?php echo esc_html($order_detail->manifest->description) ?></span>
 					</div>
 					<div class="info-item">
-						<strong>Sender Name:</strong> <span><?php echo $order_detail->manifest->sendersName ?></span>
+						<strong>Sender Name:</strong> <span><?php echo esc_html($order_detail->manifest->sendersName) ?></span>
 					</div>
 				</div>
 
 				<div class="barcode">
-					<img src="https://barcode.tec-it.com/barcode.ashx?data=<?php echo $order_detail->orderNo ?>&code=Code128" alt="Barcode">
-					<br> <?php echo $order_detail->orderNo ?>
+					<img src="https://barcode.tec-it.com/barcode.ashx?data=<?php echo esc_html($order_detail->orderNo) ?>&code=Code128" alt="Barcode">
+					<br> <?php echo esc_html($order_detail->orderNo) ?>
 				</div>
 			</div>
 		</div>

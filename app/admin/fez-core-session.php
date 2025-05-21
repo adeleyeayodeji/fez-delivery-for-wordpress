@@ -2,6 +2,7 @@
 
 /**
  * Fez Core Session
+ *
  * @package FezDelivery\App\Admin
  */
 
@@ -16,6 +17,31 @@ if (!defined('ABSPATH')) {
 
 class FezCoreSession extends Base
 {
+	/**
+	 * Whether the session has been started
+	 * @var bool
+	 */
+	private $session_started = false;
+
+	/**
+	 * Initialize session only if we're in admin or specific AJAX endpoints
+	 * @return bool
+	 */
+	private function maybe_start_session()
+	{
+		// Don't start session if already started
+		if ($this->session_started) {
+			return true;
+		}
+
+		// Start session if not already started
+		if (!session_id()) {
+			@session_start();
+			$this->session_started = true;
+		}
+
+		return true;
+	}
 
 	/**
 	 * Set session
@@ -25,9 +51,8 @@ class FezCoreSession extends Base
 	 */
 	public function set($key, $value)
 	{
-		//check if session is available
-		if (!session_id()) {
-			session_start();
+		if (!$this->maybe_start_session()) {
+			return;
 		}
 		$_SESSION['fez_delivery_plugin'][$key] = $value;
 	}
@@ -39,20 +64,22 @@ class FezCoreSession extends Base
 	 */
 	public function get($key)
 	{
-		//check if session is available
-		if (!session_id()) {
-			session_start();
+		if (!$this->maybe_start_session()) {
+			return null;
 		}
-		return isset($_SESSION['fez_delivery_plugin'][$key]) ? $_SESSION['fez_delivery_plugin'][$key] : null;
+		return isset($_SESSION['fez_delivery_plugin'][$key]) ? $this->sanitizeDynamic($_SESSION['fez_delivery_plugin'][$key]) : null;
 	}
 
 	/**
 	 * Get all session
-	 * @return array
+	 * @return array|null
 	 */
 	public function getAll()
 	{
-		return $_SESSION['fez_delivery_plugin'];
+		if (!$this->maybe_start_session()) {
+			return null;
+		}
+		return isset($_SESSION['fez_delivery_plugin']) ? $this->sanitize_array($_SESSION['fez_delivery_plugin']) : null;
 	}
 
 	/**
@@ -62,11 +89,9 @@ class FezCoreSession extends Base
 	 */
 	public function unset($key)
 	{
-		//check if session is available
-		if (!session_id()) {
-			session_start();
+		if (!$this->maybe_start_session()) {
+			return;
 		}
-		//check if we have the session
 		if (isset($_SESSION['fez_delivery_plugin'][$key])) {
 			unset($_SESSION['fez_delivery_plugin'][$key]);
 		}
@@ -88,14 +113,77 @@ class FezCoreSession extends Base
 	 */
 	public function destroy()
 	{
-		//check if session is available
-		if (!session_id()) {
-			session_start();
+		if (!$this->maybe_start_session()) {
+			return;
 		}
-
-		//check if we have the session
 		if (isset($_SESSION['fez_delivery_plugin'])) {
 			unset($_SESSION['fez_delivery_plugin']);
+		}
+		$this->session_started = false;
+	}
+
+	//sanitize_array
+	public function sanitize_array($array)
+	{
+		//check if array is not empty
+		if (!empty($array)) {
+			//loop through array
+			foreach ($array as $key => $value) {
+				//check if value is array
+				if (is_array($array)) {
+					//sanitize array
+					$array[$key] = is_array($value) ? $this->sanitize_array($value) : $this->sanitizeDynamic($value);
+				} else {
+					//check if $array is object
+					if (is_object($array)) {
+						//sanitize object
+						$array->$key = $this->sanitizeDynamic($value);
+					} else {
+						//sanitize mixed
+						$array[$key] = $this->sanitizeDynamic($value);
+					}
+				}
+			}
+		}
+		//return array
+		return $array;
+	}
+
+	//sanitize_object
+	public function sanitize_object($object)
+	{
+		//check if object is not empty
+		if (!empty($object)) {
+			//loop through object
+			foreach ($object as $key => $value) {
+				//check if value is array
+				if (is_array($value)) {
+					//sanitize array
+					$object->$key = $this->sanitize_array($value);
+				} else {
+					//sanitize mixed
+					$object->$key = $this->sanitizeDynamic($value);
+				}
+			}
+		}
+		//return object
+		return $object;
+	}
+
+	//dynamic sanitize
+	public function sanitizeDynamic($data)
+	{
+		$type = gettype($data);
+		switch ($type) {
+			case 'array':
+				return $this->sanitize_array($data);
+				break;
+			case 'object':
+				return $this->sanitize_object($data);
+				break;
+			default:
+				return sanitize_text_field($data);
+				break;
 		}
 	}
 }

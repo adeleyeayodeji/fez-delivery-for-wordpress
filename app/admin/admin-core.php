@@ -237,11 +237,13 @@ class Admin_Core extends Base
 	public function listen_for_fez_delivery_label()
 	{
 		//check if fez delivery label is set
-		if (isset($_GET['fez_delivery_label']) && !empty($_GET['fez_delivery_label'])) {
+		if (isset($_GET['fez_delivery_label']) && !empty($_GET['fez_delivery_label']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['nonce'])), 'download_label_' . $_GET['id'])) {
 			//init fez shipping label
 			$fez_shipping_label = new Fez_Shipping_Label();
+			//sanitize fez delivery label
+			$fez_delivery_label = sanitize_text_field($_GET['fez_delivery_label']);
 			//generate shipping label
-			$fez_shipping_label->generate_shipping_label($_GET['fez_delivery_label']);
+			$fez_shipping_label->generate_shipping_label($fez_delivery_label);
 			//exit
 			wp_die();
 		}
@@ -256,7 +258,7 @@ class Admin_Core extends Base
 	{
 		try {
 			//validate nonce
-			if (!wp_verify_nonce($_GET['nonce'], 'fez_delivery_admin_nonce')) {
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['nonce'])), 'fez_delivery_admin_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 
@@ -310,23 +312,28 @@ class Admin_Core extends Base
 			} else {
 				$fez_delivery_url = FEZ_DELIVERY_PRODUCTION_TRACKING_URL;
 			}
+
+
+
+			// Debugging output for URL and nonce
+			$constructed_url = add_query_arg(['fez_delivery_label' => $fez_delivery_order_nos, 'nonce' => wp_create_nonce('download_label_' . $order->get_id())], admin_url('admin.php?page=wc-orders&id=' . $order->get_id()));
 ?>
 
 
 			<div class="fez-delivery-order-details">
 				<h3>
-					<img src="<?php echo FEZ_DELIVERY_ASSETS_URL; ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
+					<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
 				</h3>
 
-				<p>Order No: <?php echo $fez_delivery_order_nos; ?></p>
+				<p>Order No: <?php echo esc_html($fez_delivery_order_nos); ?></p>
 
-				<p>Status: <span class="fez-delivery-order-status-wc-order" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Getting details...</span></p>
+				<p>Status: <span class="fez-delivery-order-status-wc-order" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>">Getting details...</span></p>
 
-				<p>Cost: <span class="fez-delivery-order-cost-wc-order" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">--</span></p>
+				<p>Cost: <span class="fez-delivery-order-cost-wc-order" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>">--</span></p>
 
 				<div class="fez-delivery-order-buttons">
-					<a href="<?php echo $fez_delivery_url . $fez_delivery_order_nos; ?>" class="fez-delivery-order-details-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>" target="_blank">Track Delivery</a>
-					<a href="<?php echo add_query_arg('fez_delivery_label', $fez_delivery_order_nos, admin_url('admin.php?page=wc-orders&id=' . $order->get_id())); ?>" class="fez-delivery-order-label-button" data-order-id="<?php echo $order->get_id(); ?>" data-order-nos="<?php echo $fez_delivery_order_nos; ?>">Download Label</a>
+					<a href="<?php echo esc_url($fez_delivery_url . $fez_delivery_order_nos); ?>" class="fez-delivery-order-details-button" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>" target="_blank">Track Delivery</a>
+					<a href="<?php echo esc_url($constructed_url); ?>" class="fez-delivery-order-label-button" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>">Download Label</a>
 				</div>
 			</div>
 		<?php
@@ -385,8 +392,11 @@ class Admin_Core extends Base
 				$fez_delivery_order_nos = $order->get_meta('fez_delivery_order_nos');
 				//check if fez delivery order nos is not empty
 				if (!empty($fez_delivery_order_nos)) {
-					//echo fez delivery order nos
-					echo "<a href='" . add_query_arg('fez_delivery_label', $fez_delivery_order_nos, admin_url('admin.php?page=wc-orders&id=' . $order_id)) . "' class='fez-delivery-order-label-button'>Download Label</a>";
+					// Debugging output for URL and nonce
+					$constructed_url = add_query_arg(['fez_delivery_label' => $fez_delivery_order_nos, 'nonce' => wp_create_nonce('download_label_' . $order->get_id())], admin_url('admin.php?page=wc-orders&id=' . $order->get_id()));
+
+					// Use the constructed URL
+					echo "<a href='" . esc_url($constructed_url) . "' class='fez-delivery-order-label-button'>Download Label</a>";
 				} else {
 					echo "<span class='fez-delivery-order-label-button inactive'>N/A</span>";
 				}
@@ -709,7 +719,7 @@ class Admin_Core extends Base
 	{
 		try {
 			//validate nonce
-			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_frontend_nonce')) {
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_frontend_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 			//unset delivery cost
@@ -738,7 +748,7 @@ class Admin_Core extends Base
 	{
 		try {
 			//validate nonce
-			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_frontend_nonce')) {
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_frontend_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 
@@ -793,7 +803,7 @@ class Admin_Core extends Base
 	{
 		try {
 			//validate nonce
-			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_frontend_nonce')) {
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_frontend_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 
@@ -969,7 +979,7 @@ class Admin_Core extends Base
 	{
 		try {
 			//validate nonce
-			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_admin_nonce')) {
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_admin_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 			//get woocommerce_fez_delivery_fez_username
@@ -1068,7 +1078,7 @@ class Admin_Core extends Base
 	{
 		try {
 			//validate nonce
-			if (!wp_verify_nonce($_POST['nonce'], 'fez_delivery_admin_nonce')) {
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_admin_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 			//delete auth token
