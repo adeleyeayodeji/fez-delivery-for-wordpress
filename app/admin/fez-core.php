@@ -249,6 +249,16 @@ class Fez_Core extends Base
 				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
 			];
 
+			//check if delivery state is matched abuja
+			if (strpos(strtolower($delivery_state), 'abuja') !== false) {
+				$delivery_state = 'FCT';
+			}
+
+			//check if pickup state is matched abuja
+			if (strpos(strtolower($pickup_state), 'abuja') !== false) {
+				$pickup_state = 'FCT';
+			}
+
 			$data = [
 				'state' => $delivery_state,
 				'pickUpState' => $pickup_state,

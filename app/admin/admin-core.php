@@ -476,6 +476,16 @@ class Admin_Core extends Base
 				$data_items_message .= "\n";
 			}
 
+			//check if delivery state is matched abuja
+			if (strpos(strtolower($delivery_state), 'abuja') !== false) {
+				$delivery_state = 'FCT';
+			}
+
+			//check if pickup state is matched abuja
+			if (strpos(strtolower($pickup_state), 'abuja') !== false) {
+				$pickup_state = 'FCT';
+			}
+
 			$dataRequest = [
 				[
 					"recipientAddress" => $billing_address['address_1'],
@@ -590,6 +600,16 @@ class Admin_Core extends Base
 			//check if shipping amount is successful
 			if (!$shipping_amount['success']) {
 				throw new \Exception('Shipping amount is not successful');
+			}
+
+			//check if delivery state is matched abuja
+			if (strpos(strtolower($delivery_state_label), 'abuja') !== false) {
+				$delivery_state_label = 'FCT';
+			}
+
+			//check if pickup state is matched abuja
+			if (strpos(strtolower($pickup_state_label), 'abuja') !== false) {
+				$pickup_state_label = 'FCT';
 			}
 
 			//get shipping amount
