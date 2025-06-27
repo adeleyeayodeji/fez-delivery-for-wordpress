@@ -1,27 +1,27 @@
-=== Fez Delivery ===
-Contributors: biggidroid, fezdelivery
-Donate link: https://www.fezdelivery.co/
-Tags: delivery, management, fezdelivery
-Requires at least: 5.0
-Tested up to: 6.8
-Requires PHP: 7.4
-Stable tag: 1.0.3
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+# Fez Delivery #
+**Contributors:** biggidroid, fezdelivery  
+**Donate link:** https://www.fezdelivery.co/  
+**Tags:** delivery, management, fezdelivery  
+**Requires at least:** 5.0  
+**Tested up to:** 6.8  
+**Requires PHP:** 7.4  
+**Stable tag:** 1.0.3  
+**License:** GPLv2 or later  
+**License URI:** https://www.gnu.org/licenses/gpl-2.0.html  
 
 Fez Delivery is a WordPress delivery management system.
 
-== Description ==
+## Description ##
 
 Fez Delivery is a WordPress delivery management system.
 
-== Features ==
+## Features ##
 
 -   Import orders from woocommerce to fez delivery
 -   Manage orders in fez delivery
 -   Barcode generator for orders
 
-== Installation ==
+## Installation ##
 
 1. Upload the plugin folder to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the "Plugins" menu in WordPress.
@@ -29,27 +29,27 @@ Fez Delivery is a WordPress delivery management system.
 
 
 
-== Changelog ==
+## Changelog ##
 
-= 1.0.3 =
+### 1.0.3 ###
 
 -   Fixed the issue with the delivery state not being updated.
 
-= 1.0.2 =
+### 1.0.2 ###
 
 -   Fixed the issue with the order status not being updated.
 
-= 1.0.1 =
+### 1.0.1 ###
 
 -   Fixed the issue with the order status not being updated.
 
-= 1.0.0 =
+### 1.0.0 ###
 
 -   Initial release with support for delivery management.
 
 For support and feedback, please visit https://www.fezdelivery.co/.
 
-== External Resources ==
+## External Resources ##
 
 This plugin uses the following external resources:
 
@@ -57,11 +57,11 @@ This plugin uses the following external resources:
 
 For more information on generating barcodes, visit [TEC-IT Barcode Generator](https://barcode.tec-it.com/).
 
-== External Services ==
+## External Services ##
 
 This plugin connects to several external services to provide its functionality. Below is a detailed breakdown of each service, what data is transmitted, and when:
 
-=== Fez Delivery API Services ===
+# Fez Delivery API Services #
 
 1. Fez Delivery API (Production and Sandbox)
    - Service URL: https://api.fezdelivery.co/
@@ -77,7 +77,7 @@ This plugin connects to several external services to provide its functionality. 
      * When managing deliveries
    - Terms of Service: https://www.fezdelivery.co/terms-condition
 
-=== Third-Party Services ===
+# Third-Party Services #
 
 1. TEC-IT Barcode Generator
    - Service URL: https://barcode.tec-it.com/
@@ -88,11 +88,11 @@ This plugin connects to several external services to provide its functionality. 
      * When generating shipping labels
      * When printing order barcodes
 
-== Data Privacy and Security ==
+## Data Privacy and Security ##
 
 All data transmission to our services is encrypted using HTTPS. We maintain strict data protection standards and comply with relevant data protection regulations. For detailed information about how we handle your data, please refer to our terms and conditions at https://www.fezdelivery.co/terms-condition.
 
-== Support ==
+## Support ##
 
 For support and feedback, please visit https://www.fezdelivery.co/ or contact us at support@fezdelivery.co.
 

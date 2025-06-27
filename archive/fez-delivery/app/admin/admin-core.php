@@ -109,8 +109,6 @@ class Admin_Core extends Base
 		add_action('wp_ajax_get_fez_delivery_order_details', array($this, 'get_fez_delivery_order_details'));
 		//listen for fez delivery label
 		$this->listen_for_fez_delivery_label();
-		//is woocommerce checkout page
-		add_action('wp', array($this, 'is_woocommerce_checkout_page'));
 	}
 
 	/**
@@ -1120,24 +1118,5 @@ class Admin_Core extends Base
 				'status' => 'error'
 			));
 		}
-	}
-
-
-	/**
-	 * Check if current page is woocommerce checkout page
-	 *
-	 * @return void|mixed
-	 */
-	public function is_woocommerce_checkout_page()
-	{
-		if (is_checkout()) {
-			//get export locations and exports weights
-			// $response = Fez_Core::instance()->getExportLocationsAndExportsWeights();
-
-			//log
-			// file_put_contents(__DIR__ . '/export_locations_and_exports_weights.json', json_encode($response));
-		}
-
-		return false;
 	}
 }

@@ -1,0 +1,64 @@
+{
+  "name": "fez-delivery/fez-delivery",
+  "description": "A plugin for managing delivery orders.",
+  "type": "project",
+  "config": {
+    "platform": {
+      "php": "7.4"
+    },
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "roots/wordpress-core-installer": true
+    },
+    "preferred-install": "dist",
+    "archive": {
+      "exclude": [
+        "tests",
+        "bin",
+        "docs",
+        "*.md",
+        ".*",
+        ".zip",
+        ".log",
+        ".txt",
+        ".md",
+        ".dist"
+      ]
+    }
+  },
+  "license": "GPL-2.0+",
+  "authors": [
+    {
+      "name": "Fez Team",
+      "homepage": "https://www.fezdelivery.co/"
+    }
+  ],
+  "require": {
+    "php": ">=7.4",
+    "endroid/qr-code": "^4.6",
+    "mpdf/mpdf": "^8.2"
+  },
+  "require-dev": {
+    "phpcsstandards/phpcsutils": "^1.0",
+    "phpcsstandards/phpcsextra": "^1.1",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpunit/phpunit": "^9",
+    "wp-phpunit/wp-phpunit": "^5",
+    "yoast/phpunit-polyfills": "^1.0",
+    "roots/wordpress": "^6.0"
+  },
+  "scripts": {
+    "test": "phpunit"
+  },
+  "autoload": {
+    "files": [
+      "app/helpers/helper.php",
+      "app/wc-core/fez-shipping-method.php"
+    ],
+    "classmap": [
+      "core/",
+      "app/"
+    ]
+  }
+}
