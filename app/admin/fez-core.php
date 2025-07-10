@@ -310,9 +310,10 @@ class Fez_Core extends Base
 	/**
 	 * Create order
 	 * @param array $data
+	 * @param bool $is_export
 	 * @return array
 	 */
-	public function createOrder(array $data)
+	public function createOrder(array $data, bool $is_export = false)
 	{
 		try {
 			//get the auth token
@@ -326,7 +327,13 @@ class Fez_Core extends Base
 			//get secret key
 			$secret_key = $auth_token["data"]["data"]->orgDetails->{'secret-key'};
 
-			$url = $this->api_url . 'v1/order';
+			//check if is export
+			if ($is_export) {
+				$url = $this->api_url . 'v1/orders/export';
+			} else {
+				$url = $this->api_url . 'v1/order';
+			}
+
 			$headers = [
 				'Content-Type' => 'application/json',
 				'secret-key'   => $secret_key,
@@ -467,6 +474,59 @@ class Fez_Core extends Base
 			];
 		} catch (\Exception $e) {
 			error_log("Fez Delivery Export Locations and Exports Weights Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
+			return [
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			];
+		}
+	}
+
+	/**
+	 * Get export delivery cost
+	 * @param int $weightId
+	 * @return int $exportLocationId
+	 */
+	public function getExportDeliveryCost(int $weightId, int $exportLocationId)
+	{
+		try {
+			//get the auth token
+			$auth_token = $this->authenticateUser();
+
+			//get secret key
+			$secret_key = $auth_token["data"]["data"]->orgDetails->{'secret-key'};
+
+			//https://apisandbox.fezdelivery.co/v1/orders/export-price
+			$url = $this->api_url . 'v1/orders/export-price';
+			$headers = [
+				'Content-Type' => 'application/json',
+				'secret-key'   => $secret_key,
+				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
+			];
+
+			$data = [
+				'exportLocationId' => $exportLocationId,
+				'weightId' => $weightId
+			];
+
+			$response = Requests::post($url, $headers, json_encode($data));
+
+			//get the body
+			$response_body = json_decode($response->body);
+
+			//check if response is successful
+			if (!$response->success) {
+				throw new \Exception($response_body->description);
+			}
+
+			//return success
+			return [
+				'success' => true,
+				'message' => $response_body->description,
+				'data' => $response_body
+			];
+		} catch (\Exception $e) {
+			error_log("Fez Delivery Export Delivery Cost Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 			return [
 				'success' => false,
 				'message' => $e->getMessage(),

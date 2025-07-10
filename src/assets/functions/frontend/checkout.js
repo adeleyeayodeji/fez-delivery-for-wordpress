@@ -9,6 +9,15 @@ jQuery(document).ready(function ($) {
 	 *
 	 */
 	window.resetFezDeliveryCost = () => {
+		//get country value
+		const country = jQuery("#billing_country").val();
+		//check if country is not NG
+		if (country != "NG") {
+			//trigger change event on country
+			jQuery("#billing_country").trigger("change");
+			//return
+			return;
+		}
 		//trigger change event on state
 		jQuery("#billing_state").trigger("change");
 	};
@@ -93,6 +102,19 @@ jQuery(document).ready(function ($) {
 		event.preventDefault();
 		//get form
 		var form = jQuery("form[name='checkout']");
+
+		var locationId = "";
+		var weightId = "";
+
+		//get country mode
+		var countryMode = jQuery(element).data("country-mode");
+		//check if country mode is true
+		if (countryMode) {
+			//get location id
+			locationId = jQuery(element).data("location-id");
+			//get weight id
+			weightId = jQuery(element).data("weight-id");
+		}
 		//get delivery cost
 		var deliveryCost = jQuery(element).data("delivery-cost");
 		var deliveryStateLabel = jQuery(element).data("delivery-state-label");
@@ -109,6 +131,9 @@ jQuery(document).ready(function ($) {
 				delivery_state_label: deliveryStateLabel,
 				pickup_state_label: pickupStateLabel,
 				total_weight: totalWeight,
+				location_id: locationId,
+				weight_id: weightId,
+				country_mode: countryMode,
 				nonce: fez_delivery_frontend.nonce,
 			},
 			beforeSend: function () {
@@ -197,14 +222,26 @@ jQuery(document).ready(function ($) {
 	const getDeliveryCost = () => {
 		//reset delivery cost
 		resetDeliveryCost();
+
+		//get country value
+		const country = jQuery("#billing_country").val();
+
 		//get #ship-to-different-address-checkbox
 		const shipToDifferentAddressCheckbox = jQuery(
 			"#ship-to-different-address-checkbox",
 		);
+
+		//billing state elem
+		const billingStateElement = jQuery("#billing_state");
+
 		//get billing state
-		var deliveryState = jQuery("#billing_state").val();
+		var deliveryState =
+			billingStateElement.length > 0 ? billingStateElement.val() : "";
 		//check if the checkbox is checked
-		if (shipToDifferentAddressCheckbox.is(":checked")) {
+		if (
+			shipToDifferentAddressCheckbox.length > 0 &&
+			shipToDifferentAddressCheckbox.is(":checked")
+		) {
 			//get the delivery state
 			deliveryState = jQuery("#shipping_state").val();
 		}
@@ -218,6 +255,7 @@ jQuery(document).ready(function ($) {
 			data: {
 				action: "get_fez_delivery_cost",
 				deliveryState: deliveryState,
+				country: country,
 				nonce: fez_delivery_frontend.nonce,
 			},
 			beforeSend: function () {
@@ -275,6 +313,26 @@ jQuery(document).ready(function ($) {
 
 	//on change of #ship-to-different-address-checkbox
 	jQuery("#billing_state, #shipping_state").on("change", function () {
+		//get country value
+		const country = jQuery("#billing_country").val();
+		//check if country is not NG
+		if (country != "NG") {
+			//return
+			return;
+		}
+		//get delivery cost
+		getDeliveryCost();
+	});
+
+	//on change of #billing_country
+	jQuery("#billing_country").on("change", function () {
+		//get country value
+		const country = jQuery("#billing_country").val();
+		//check if country is not NG
+		if (country == "NG") {
+			//do nothing
+			return;
+		}
 		//get delivery cost
 		getDeliveryCost();
 	});
@@ -313,7 +371,12 @@ jQuery(document).ready(function ($) {
 							data-delivery-state-label='${response_data.delivery_state_label}'
 							data-pickup-state-label='${response_data.pickup_state_label}'
 							data-total-weight='${response_data.total_weight}'
-							data-delivery-cost='${delivery_cost}'>Select Delivery</a>
+							data-country-mode='${response_data.country_mode}'
+							data-delivery-cost='${delivery_cost}' ${
+								response_data.country_mode
+									? `data-location-id='${response_data.location_id}' data-weight-id='${response_data.weight_id}'`
+									: ""
+							}>Select Delivery</a>
 						</div>
 				`;
 
@@ -345,6 +408,16 @@ jQuery(document).ready(function ($) {
 			if (label.length > 0) {
 				//check if label has woocommerce-Price-amount
 				if (!label.find(".woocommerce-Price-amount").length) {
+					//get country value
+					const country = jQuery("#billing_country").val();
+					//check if country is not NG
+					if (country != "NG") {
+						//trigger change event on country
+						jQuery("#billing_country").trigger("change");
+					} else {
+						//trigger change event on state
+						jQuery("#billing_state").trigger("change");
+					}
 					//show error
 					showFezDeliveryError(
 						"Please select a valid delivery option to continue",
