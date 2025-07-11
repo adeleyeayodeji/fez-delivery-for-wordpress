@@ -128,7 +128,7 @@ class Admin_Core extends Base
 			switch ($create_fez_order_condition) {
 				case 'processing':
 					//woocommerce_checkout_order_created
-					add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+					add_action('woocommerce_checkout_order_created', array($this, 'send_order_to_fez_server'), PHP_INT_MAX);
 					break;
 				case 'pending':
 					//on order pending
@@ -554,6 +554,12 @@ class Admin_Core extends Base
 
 		try {
 
+			//check if order is already synced
+			if (!empty($order->get_meta('fez_delivery_order_nos'))) {
+				//return
+				return false;
+			}
+
 			//get customer billing state
 			$customer_billing_state = $order->get_billing_state();
 			//init fez core
@@ -565,11 +571,18 @@ class Admin_Core extends Base
 			//order_id
 			$order_id = $order->get_id();
 
+			$data_items_message = "";
+
 			//get total weight
 			$total_weight = 0;
 			foreach ($order->get_items() as $item) {
 				$product_id = $item->get_product_id();
 				$total_weight += (float)get_post_meta($product_id, '_weight', true) ?: 0;
+
+				//append to data items message
+				$data_items_message .= "{$item->get_quantity()} of {$item->get_name()} at {$item->get_total()}, ";
+				//add new line
+				$data_items_message .= "\n";
 			}
 
 			//get billing address
@@ -607,32 +620,22 @@ class Admin_Core extends Base
 				//get shipping amount
 				$shipping_amount = $response['data']->data->price;
 
-				//get woocommerce states
-				$woocommerce_states = WC()->countries->get_states($order_country);
-
-				//get state from state code
-				$delivery_state_label = $woocommerce_states[$customer_billing_state];
-
 				$dataRequest = [
 					[
 						"recipientAddress" => $billing_address['address_1'],
-						"recipientState" => $delivery_state_label,
 						"recipientName" => $customer_name,
 						"recipientPhone" => $customer_phone,
 						"uniqueID" => "woocommerce_" . $order_id,
 						"BatchID" => "woocommerce_batch_" . $order_id,
 						"valueOfItem" => $order->get_total(),
 						"exportLocationId" => $weight_result['location_id'],
-						"weight" => $weight_result['weight_size']
+						"weight" => $weight_result['weight_size'],
+						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
 					]
 				];
 
-				error_log("dataRequest: " . json_encode($dataRequest));
-
 				//get delivery cost
 				$response = $fez_core->createOrder($dataRequest, true);
-
-				error_log("response: " . json_encode($response));
 
 				//add note: order type
 				$order->add_order_note('Fez Delivery Order Type: Export');
@@ -679,7 +682,8 @@ class Admin_Core extends Base
 						"BatchID" => "woocommerce_batch_" . $order_id,
 						"valueOfItem" => $order->get_total(),
 						"weight" => $total_weight,
-						"pickUpState" => $pickup_state_label
+						"pickUpState" => $pickup_state_label,
+						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
 					]
 				];
 
@@ -736,7 +740,6 @@ class Admin_Core extends Base
 				//save order
 				$order->save();
 			} else {
-				error_log("Fez Delivery Order Error: " . $response['message']);
 				//add wc order note
 				$order->add_order_note('Fez Delivery Order Error: ' . $response['message']);
 				//add note to order
