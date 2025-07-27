@@ -66,6 +66,12 @@ class Fez_Core extends Base
 	public $create_fez_order_condition;
 
 	/**
+	 * Enable fez safe locker
+	 * @var string
+	 */
+	public $enable_fez_safe_locker;
+
+	/**
 	 * Constructor
 	 * @return void
 	 */
@@ -157,6 +163,9 @@ class Fez_Core extends Base
 
 			//get the create fez order condition
 			$this->create_fez_order_condition = isset($fez_options['create_fez_order_condition']) ? $fez_options['create_fez_order_condition'] : 'processing';
+
+			//get the enable fez safe locker
+			$this->enable_fez_safe_locker = isset($fez_options['enable_fez_safe_locker']) ? $fez_options['enable_fez_safe_locker'] : 'no';
 		} catch (\Exception $e) {
 			error_log("Fez Core Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 		}
@@ -225,9 +234,10 @@ class Fez_Core extends Base
 	 * @param string $delivery_state
 	 * @param string $pickup_state
 	 * @param float $total_weight
+	 * @param string $safe_locker_id
 	 * @return array
 	 */
-	public function getDeliveryCost(string $delivery_state, string $pickup_state, float $total_weight)
+	public function getDeliveryCost(string $delivery_state, string $pickup_state, float $total_weight, string $safe_locker_id = "none")
 	{
 		try {
 			//get the auth token
@@ -265,6 +275,11 @@ class Fez_Core extends Base
 				'weight' => $total_weight
 			];
 
+			//check if safe locker id is not none
+			if ($safe_locker_id != "none") {
+				$data['locker'] = true;
+			}
+
 			$response = Requests::post($url, $headers, json_encode($data));
 
 			//get the body
@@ -278,9 +293,17 @@ class Fez_Core extends Base
 			//check if response status is Success
 			if ($response_body->status == 'Success') {
 				//check if $response_body->Cost is an array
-				if (is_array($response_body->Cost)) {
+				if (isset($response_body->Cost) && is_array($response_body->Cost)) {
 					//get the first item
 					$response_body->Cost = $response_body->Cost[0];
+				}
+
+				//check if isset locker cost
+				if (isset($response_body->cost)) {
+					//add locker cost to response body
+					$response_body->Cost = (object) [
+						'cost' => $response_body->cost
+					];
 				}
 
 				//return success
@@ -527,6 +550,64 @@ class Fez_Core extends Base
 			];
 		} catch (\Exception $e) {
 			error_log("Fez Delivery Export Delivery Cost Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
+			return [
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			];
+		}
+	}
+
+	/**
+	 * Get safe locker content
+	 * @param string $billing_state
+	 * @return array
+	 */
+	public function getSafeLockerContent(string $billing_state)
+	{
+		try {
+			//get the auth token
+			$auth_token = $this->authenticateUser();
+
+			//get secret key
+			$secret_key = $auth_token["data"]["data"]->orgDetails->{'secret-key'};
+
+			//https://apisandbox.fezdelivery.co/v1/Lockers/{{State}}
+			$url = $this->api_url . 'v1/Lockers/' . $billing_state;
+			$headers = [
+				'Content-Type' => 'application/json',
+				'secret-key'   => $secret_key,
+				'Authorization' => 'Bearer ' . $auth_token['data']['authToken']
+			];
+
+			$response = Requests::get($url, $headers);
+
+			//get the body
+			$response_body = json_decode($response->body);
+
+			//check if response is successful
+			if (!$response->success) {
+				throw new \Exception($response_body->description);
+			}
+
+			//check if description matches with "No Locker Found"
+			if (strpos($response_body->description, 'No Locker Found') !== false) {
+				//return success
+				return [
+					'success' => false,
+					'message' => "No Locker Found for " . $billing_state,
+					'data' => null
+				];
+			}
+
+			//return success
+			return [
+				'success' => true,
+				'message' => $response_body->description,
+				'data' => $response_body
+			];
+		} catch (\Exception $e) {
+			error_log("Fez Delivery Safe Locker Content Error: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
 			return [
 				'success' => false,
 				'message' => $e->getMessage(),

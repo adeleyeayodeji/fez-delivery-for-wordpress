@@ -106,6 +106,13 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				"default" => "",
 				"disabled" => !empty($fez_delivery_user) ? true : false,
 			),
+			'enable_fez_safe_locker' => array(
+				'title'     => __('Enable/Disable Safe Locker', 'fez-delivery'),
+				'type'         => 'checkbox',
+				'label'     => __('Enable Fez Safe Locker', 'fez-delivery'),
+				'default'     => 'no',
+				'disabled' => !empty($fez_delivery_user) ? true : false,
+			),
 			//fez password
 			"fez_password" => array(
 				"title" => __("Fez Password", 'fez-delivery'),

@@ -59,3 +59,38 @@
 .wc-block-components-shipping-rates-control__package__description--free {
 	display: none !important;
 }
+
+.fez-safe-locker {
+	.fez-safe-locker-content {
+		padding: 0;
+		margin: 0;
+	}
+
+	.fez-safe-locker-content-text {
+		font-size: 13px;
+		font-weight: 600;
+		color: #6d6d6d;
+	}
+}
+
+.fez-safe-locker-ignore-container {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	margin-top: 15px;
+	gap: 2px;
+
+	label {
+		font-size: 13px;
+		font-weight: 600;
+		color: #6d6d6d;
+	}
+}
+
+.fez-safe-locker-ignore-before::before {
+	display: none !important;
+}
+
+.fez-safe-locker {
+	display: none;
+}

@@ -91,7 +91,7 @@ class Admin_Core extends Base
 		// Add shipping icon to the shipping label
 		add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_shipping_icon'), PHP_INT_MAX, 2);
 		//woocommerce_checkout_update_order_meta
-		// add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+		add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_locker_order_meta'), PHP_INT_MAX);
 		$this->fezCreateOrderCondition();
 		//filter woocommerce_' . $this->order_type . '_list_table_columns
 		add_filter('woocommerce_shop_order_list_table_columns', array($this, 'fez_delivery_order_admin_list_column'), 10);
@@ -107,8 +107,107 @@ class Admin_Core extends Base
 		add_action('woocommerce_admin_order_data_after_shipping_address', array($this, 'add_order_meta_box'), PHP_INT_MAX);
 		//add action to get fez delivery order details
 		add_action('wp_ajax_get_fez_delivery_order_details', array($this, 'get_fez_delivery_order_details'));
+		//add ajax action to get safe locker content
+		add_action('wp_ajax_get_safe_locker_content', array($this, 'get_safe_locker_content'));
+		//add ajax action to get safe locker content
+		add_action('wp_ajax_nopriv_get_safe_locker_content', array($this, 'get_safe_locker_content'));
 		//listen for fez delivery label
 		$this->listen_for_fez_delivery_label();
+	}
+
+	/**
+	 * Save fez locker order meta
+	 *
+	 * @param mixed $order
+	 * @return void
+	 */
+	public function save_fez_locker_order_meta($order)
+	{
+		try {
+			//check if order is an instance of WC_Order
+			if ($order && $order instanceof WC_Order) {
+				//get order id
+				$order_id = $order->get_id();
+			} else {
+				//get order id
+				$order_id = $order;
+			}
+
+			//get order
+			$order = wc_get_order($order_id);
+			//get fez session
+			$fez_session = FezCoreSession::instance();
+			//get safe locker id
+			$safe_locker_id = $fez_session->get('safe_locker_id');
+			//check if safe locker id is not empty
+			if (!empty($safe_locker_id)) {
+				//save safe locker id to order meta
+				$order->update_meta_data('fez_safe_locker_id', $safe_locker_id);
+				//safe another for post meta
+				update_post_meta($order->get_id(), 'fez_safe_locker_id', $safe_locker_id);
+				//add order message
+				$order->add_order_note('Fez Safe Locker ID: ' . $safe_locker_id);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Save Locker Order Meta Error: " . $e->getMessage());
+		}
+	}
+
+	/**
+	 * Get safe locker content
+	 *
+	 * @return void
+	 */
+	public function get_safe_locker_content()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['nonce'])), 'fez_delivery_frontend_nonce')) {
+				throw new \Exception('Invalid nonce, please refresh the page and try again.');
+			}
+
+			//get fez core
+			$fez_core = Fez_Core::instance();
+
+			//get billing state
+			$billing_state = sanitize_text_field($_GET['billing_state']);
+
+			//get woocommerce states
+			$woocommerce_states = WC()->countries->get_states("NG");
+
+			//get state from state code
+			$state_name = $woocommerce_states[$billing_state];
+
+			//get safe locker content
+			$response = $fez_core->getSafeLockerContent($state_name);
+
+			//check if response is successful
+			if ($response['success']) {
+				//send success response
+				wp_send_json_success([
+					'success' => true,
+					'message' => $response['message'],
+					'data' => $response['data']
+				]);
+			} else {
+				//send error response
+				wp_send_json_error([
+					'success' => false,
+					'message' => $response['message'],
+					'data' => null
+				]);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Safe Locker Content Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error([
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			]);
+		}
 	}
 
 	/**
@@ -651,8 +750,11 @@ class Admin_Core extends Base
 				//get state from state code
 				$pickup_state_label = $woocommerce_states[$pickup_state];
 
+				//get fez safe locker id from order
+				$fez_safe_locker_id = get_post_meta($order_id, 'fez_safe_locker_id', true) ?: "none";
+
 				//get the shiiping amount from fez
-				$shipping_amount = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight);
+				$shipping_amount = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight, $fez_safe_locker_id);
 
 				//check if shipping amount is successful
 				if (!$shipping_amount['success']) {
@@ -683,9 +785,15 @@ class Admin_Core extends Base
 						"valueOfItem" => $order->get_total(),
 						"weight" => $total_weight,
 						"pickUpState" => $pickup_state_label,
-						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
+						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message
 					]
 				];
+
+				//check if fez safe locker id is not empty
+				if (!empty($fez_safe_locker_id)) {
+					//add safe locker id to data request
+					$dataRequest[0]['lockerID'] = $fez_safe_locker_id;
+				}
 
 				//get delivery cost
 				$response = $fez_core->createOrder($dataRequest);
@@ -969,6 +1077,21 @@ class Admin_Core extends Base
 			//get country
 			$country = sanitize_text_field($_POST['country']);
 
+			//get safe locker id
+			$safe_locker_id = sanitize_text_field($_POST['safe_locker_id']);
+
+			//session
+			$fez_session = FezCoreSession::instance();
+
+			//check if safe locker id is not none
+			if ($safe_locker_id != "none") {
+				//save safe locker id to session
+				$fez_session->set('safe_locker_id', $safe_locker_id);
+			} else {
+				//unset safe locker id
+				$fez_session->unset('safe_locker_id');
+			}
+
 			//get total weight
 			$cart_items = WC()->cart->get_cart();
 
@@ -1040,7 +1163,7 @@ class Admin_Core extends Base
 			$pickup_state_label = $woocommerce_states[$pickup_state];
 
 			//get delivery cost
-			$response = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight);
+			$response = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight, $safe_locker_id);
 
 			//check if response is successful
 			if ($response['success']) {
@@ -1123,6 +1246,12 @@ class Admin_Core extends Base
 	 */
 	public function enqueue_frontend_script()
 	{
+		//get fez core
+		$fez_core = Fez_Core::instance();
+
+		//get enable fez safe locker
+		$enable_fez_safe_locker = $fez_core->enable_fez_safe_locker;
+
 		//enqueue frontend script
 		wp_enqueue_script('fez-delivery-frontend-script', FEZ_DELIVERY_ASSETS_URL . 'js/fezdeliveryhome.min.js', array('jquery'), FEZ_DELIVERY_VERSION, true);
 		//style
@@ -1131,7 +1260,8 @@ class Admin_Core extends Base
 		wp_localize_script('fez-delivery-frontend-script', 'fez_delivery_frontend', array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('fez_delivery_frontend_nonce'),
-			'export_locations_and_exports_weights' => is_checkout() || is_cart() ? $this->get_export_locations_and_exports_weights() : null
+			'export_locations_and_exports_weights' => is_checkout() || is_cart() ? $this->get_export_locations_and_exports_weights() : null,
+			'enable_fez_safe_locker' => $enable_fez_safe_locker
 		));
 	}
 
@@ -1186,6 +1316,8 @@ class Admin_Core extends Base
 			$fez_password = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_password']);
 			//get woocommerce_fez_delivery_fez_mode
 			$fez_mode = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_mode']);
+			//get woocommerce_fez_delivery_enable_fez_safe_locker
+			$enable_fez_safe_locker = absint($_POST['woocommerce_fez_delivery_enable_fez_safe_locker']);
 			//get woocommerce_fez_delivery_enabled
 			$enabled = absint($_POST['woocommerce_fez_delivery_enabled']);
 			//get woocommerce_fez_delivery_fez_pickup_state
@@ -1228,8 +1360,10 @@ class Admin_Core extends Base
 					'fez_password' => $fez_password,
 					'enabled' => $enabled ? 'yes' : 'no',
 					'fez_pickup_state' => $fez_pickup_state,
-					'create_fez_order_condition' => $create_fez_order_condition
+					'create_fez_order_condition' => $create_fez_order_condition,
+					'enable_fez_safe_locker' => $enable_fez_safe_locker ? 'yes' : 'no'
 				];
+
 				//check if old options is not empty
 				if (!empty($old_options)) {
 					//update woocommerce options
