@@ -367,6 +367,8 @@ class Fez_Core extends Base
 			//create order
 			$response = Requests::post($url, $headers, json_encode($data));
 
+			error_log("log: " . print_r($response, true));
+
 			//get the body
 			$response_body = json_decode($response->body);
 

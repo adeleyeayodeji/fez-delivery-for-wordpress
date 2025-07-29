@@ -653,6 +653,9 @@ class Admin_Core extends Base
 
 		try {
 
+			//get customer note
+			$customer_note = $order->get_customer_note();
+
 			//check if order is already synced
 			if (!empty($order->get_meta('fez_delivery_order_nos'))) {
 				//return
@@ -676,6 +679,7 @@ class Admin_Core extends Base
 			$total_weight = 0;
 			foreach ($order->get_items() as $item) {
 				$product_id = $item->get_product_id();
+
 				$total_weight += (float)get_post_meta($product_id, '_weight', true) ?: 0;
 
 				//append to data items message
@@ -683,6 +687,9 @@ class Admin_Core extends Base
 				//add new line
 				$data_items_message .= "\n";
 			}
+
+			//append $customer_note
+			$data_items_message .= " " . $customer_note;
 
 			//get billing address
 			$billing_address = $order->get_address();
@@ -695,8 +702,13 @@ class Admin_Core extends Base
 
 			//igonre if order country is not NG
 			if ($order->get_billing_country() !== 'NG') {
+
 				//get order country
 				$order_country = $order->get_billing_country();
+
+				//get customers email
+				$customer_email = $order->get_billing_email();
+
 				//get weight for export locations
 				$export_result = $this->get_export_locations_and_exports_weights($order_country);
 
@@ -724,12 +736,14 @@ class Admin_Core extends Base
 						"recipientAddress" => $billing_address['address_1'],
 						"recipientName" => $customer_name,
 						"recipientPhone" => $customer_phone,
+						"recipientEmail" => $customer_email,
 						"uniqueID" => "woocommerce_" . $order_id,
 						"BatchID" => "woocommerce_batch_" . $order_id,
 						"valueOfItem" => $order->get_total(),
 						"exportLocationId" => $weight_result['location_id'],
 						"weight" => $weight_result['weight_size'],
 						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
+						"orderRequestSource" => "WooCommerce Plugin"
 					]
 				];
 
@@ -743,6 +757,9 @@ class Admin_Core extends Base
 
 				//get woocommerce states
 				$woocommerce_states = WC()->countries->get_states("NG");
+
+				//get customers email
+				$customer_email = $order->get_billing_email();
 
 				//get state from state code
 				$delivery_state_label = $woocommerce_states[$customer_billing_state];
@@ -780,17 +797,19 @@ class Admin_Core extends Base
 						"recipientState" => $delivery_state_label,
 						"recipientName" => $customer_name,
 						"recipientPhone" => $customer_phone,
+						"recipientEmail" => $customer_email,
 						"uniqueID" => "woocommerce_" . $order_id,
 						"BatchID" => "woocommerce_batch_" . $order_id,
 						"valueOfItem" => $order->get_total(),
 						"weight" => $total_weight,
 						"pickUpState" => $pickup_state_label,
-						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message
+						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
+						"orderRequestSource" => "WooCommerce Plugin"
 					]
 				];
 
 				//check if fez safe locker id is not empty
-				if (!empty($fez_safe_locker_id)) {
+				if (!empty($fez_safe_locker_id) && $fez_safe_locker_id != "none") {
 					//add safe locker id to data request
 					$dataRequest[0]['lockerID'] = $fez_safe_locker_id;
 				}
