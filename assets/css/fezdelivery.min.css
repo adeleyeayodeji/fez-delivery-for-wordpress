@@ -90,4 +90,10 @@
   color: #272727;
 }
 
+.fez-delivery-order-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 /*# sourceMappingURL=fezdelivery.min.css.map*/

@@ -202,7 +202,7 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 			//apply rate
 			$this->add_rate(array(
 				'id'        => $this->id . $this->instance_id,
-				'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery - Safe Locker"),
+				'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery - Safe Locker (Free Delivery)"),
 				'cost'      => apply_filters('fez_delivery_shipping_method_cost', 0),
 			));
 			//return

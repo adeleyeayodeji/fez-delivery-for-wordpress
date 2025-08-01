@@ -228,6 +228,11 @@ class Admin_Core extends Base
 			//get state from state code
 			$state_name = $woocommerce_states[$billing_state];
 
+			//check if state name is abuja
+			if (strpos(strtolower($state_name), 'abuja') !== false) {
+				$state_name = 'FCT';
+			}
+
 			//get safe locker content
 			$response = $fez_core->getSafeLockerContent($state_name);
 
@@ -469,9 +474,12 @@ class Admin_Core extends Base
 
 
 			<div class="fez-delivery-order-details">
-				<h3>
-					<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
-				</h3>
+				<div class="fez-delivery-order-details-header">
+					<h3>
+						<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
+					</h3>
+					<a href="javascript:void(0)" onclick="window.location.reload()" class="fez-delivery-order-refresh-button">Refresh</a>
+				</div>
 
 				<p>Order No: <?php echo esc_html($fez_delivery_order_nos); ?></p>
 
@@ -731,6 +739,8 @@ class Admin_Core extends Base
 
 			$data_items_message = "";
 
+			$local_payment_method = ['bacs', 'cod'];
+
 			//get total weight
 			$total_weight = 0;
 			foreach ($order->get_items() as $item) {
@@ -743,9 +753,6 @@ class Admin_Core extends Base
 				//add new line
 				$data_items_message .= "\n";
 			}
-
-			//append $customer_note
-			$data_items_message .= " " . $customer_note;
 
 			//get billing address
 			$billing_address = $order->get_address();
@@ -799,9 +806,17 @@ class Admin_Core extends Base
 						"exportLocationId" => $weight_result['location_id'],
 						"weight" => $weight_result['weight_size'],
 						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
-						"orderRequestSource" => "WooCommerce Plugin"
+						"orderRequestSource" => "WooCommerce Plugin",
+						"additionalDetails" => $customer_note
 					]
 				];
+
+				//check if payment method is bank transfer, cash on delivery
+				if (in_array($order->get_payment_method(), $local_payment_method)) {
+					//add isItemCod and cashOnDeliveryAmount
+					$dataRequest[0]['isItemCod'] = true;
+					$dataRequest[0]['cashOnDeliveryAmount'] = $order->get_total();
+				}
 
 				//get delivery cost
 				$response = $fez_core->createOrder($dataRequest, true);
@@ -860,7 +875,8 @@ class Admin_Core extends Base
 						"weight" => $total_weight,
 						"pickUpState" => $pickup_state_label,
 						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
-						"orderRequestSource" => "WooCommerce Plugin"
+						"orderRequestSource" => "WooCommerce Plugin",
+						"additionalDetails" => $customer_note
 					]
 				];
 
@@ -868,6 +884,13 @@ class Admin_Core extends Base
 				if (!empty($fez_safe_locker_id) && $fez_safe_locker_id != "none") {
 					//add safe locker id to data request
 					$dataRequest[0]['lockerID'] = $fez_safe_locker_id;
+				}
+
+				//check if payment method is bank transfer, cash on delivery
+				if (in_array($order->get_payment_method(), $local_payment_method)) {
+					//add isItemCod and cashOnDeliveryAmount
+					$dataRequest[0]['isItemCod'] = true;
+					$dataRequest[0]['cashOnDeliveryAmount'] = $order->get_total();
 				}
 
 				//get delivery cost

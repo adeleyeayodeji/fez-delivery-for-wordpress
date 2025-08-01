@@ -453,7 +453,7 @@ jQuery(document).ready(function ($) {
 							if (window.fez_safe_locker_content) {
 								//show error
 								showFezDeliveryError(
-									"Please select a safe locker or ignore safe locker to continue",
+									"Please select a safe locker or select ignore safe locker to continue",
 								);
 								//return
 								return;
