@@ -113,6 +113,55 @@ class Admin_Core extends Base
 		add_action('wp_ajax_nopriv_get_safe_locker_content', array($this, 'get_safe_locker_content'));
 		//listen for fez delivery label
 		$this->listen_for_fez_delivery_label();
+		//add ajax action to sync fez delivery order manually
+		add_action('wp_ajax_sync_fez_delivery_order_manual', array($this, 'sync_fez_delivery_order_manual'));
+	}
+
+	/**
+	 * Sync fez delivery order manually
+	 *
+	 * @return void
+	 */
+	public function sync_fez_delivery_order_manual()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_admin_nonce')) {
+				wp_send_json_error('Invalid nonce, please refresh the page and try again.');
+			}
+
+			//get order id
+			$order_id = sanitize_text_field(wp_unslash($_POST['order_id']));
+
+			//get order
+			$order = wc_get_order($order_id);
+
+			//send order to fez server
+			$response = $this->send_order_to_fez_server($order);
+
+			//check if response is successful
+			if ($response['success']) {
+				//return success
+				wp_send_json_success([
+					'success' => true,
+					'message' => $response['message']
+				]);
+			} else {
+				//return error
+				wp_send_json_error([
+					'success' => false,
+					'message' => $response['message']
+				]);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Order Sync Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error([
+				'success' => false,
+				'message' => $e->getMessage()
+			]);
+		}
 	}
 
 	/**
@@ -434,6 +483,13 @@ class Admin_Core extends Base
 					<a href="<?php echo esc_url($fez_delivery_url . $fez_delivery_order_nos); ?>" class="fez-delivery-order-details-button" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>" target="_blank">Track Delivery</a>
 					<a href="<?php echo esc_url($constructed_url); ?>" class="fez-delivery-order-label-button" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>">Download Label</a>
 				</div>
+			</div>
+		<?php
+		} else {
+		?>
+			<div class="fez-delivery-order-sync-button-container" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
+				<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo">
+				<a href="javascript:void(0)" class="fez-delivery-order-sync-button">Sync with Fez</a>
 			</div>
 		<?php
 		}
@@ -775,7 +831,7 @@ class Admin_Core extends Base
 
 				//check if shipping amount is successful
 				if (!$shipping_amount['success']) {
-					throw new \Exception('Shipping amount is not successful');
+					throw new \Exception('Failed to get delivery cost: ' . $shipping_amount['message']);
 				}
 
 				//check if delivery state is matched abuja
@@ -866,6 +922,11 @@ class Admin_Core extends Base
 
 				//save order
 				$order->save();
+
+				return [
+					'success' => true,
+					'message' => $response['message']
+				];
 			} else {
 				//add wc order note
 				$order->add_order_note('Fez Delivery Order Error: ' . $response['message']);
@@ -873,6 +934,11 @@ class Admin_Core extends Base
 				$order->add_order_note('Fez Delivery sync failed via Admin Panel');
 				//save order
 				$order->save();
+
+				return [
+					'success' => false,
+					'message' => $response['message']
+				];
 			}
 		} catch (\Exception $e) {
 			//log
@@ -883,6 +949,11 @@ class Admin_Core extends Base
 			$order->add_order_note('Fez Delivery sync failed via Admin Panel');
 			//save order
 			$order->save();
+
+			return [
+				'success' => false,
+				'message' => $e->getMessage()
+			];
 		}
 	}
 
@@ -942,6 +1013,8 @@ class Admin_Core extends Base
 			$fezsession->unset('delivery_state_label');
 			$fezsession->unset('pickup_state_label');
 			$fezsession->unset('total_weight');
+			//unset mode
+			$fezsession->unset('mode');
 
 			//return success
 			wp_send_json_success(array('message' => 'Delivery cost reset successfully'));
@@ -970,9 +1043,9 @@ class Admin_Core extends Base
 			$delivery_cost = sanitize_text_field($_POST['delivery_cost']);
 
 			//check if delivery cost is not empty
-			if (empty($delivery_cost)) {
-				throw new \Exception('Delivery cost is empty, please try again');
-			}
+			// if (empty($delivery_cost)) {
+			// 	throw new \Exception('Delivery cost is empty, please try again');
+			// }
 
 			//get delivery state label
 			$delivery_state_label = sanitize_text_field($_POST['delivery_state_label']);
@@ -1006,6 +1079,8 @@ class Admin_Core extends Base
 			//set new data
 			$fezsession->set('delivery_cost', $delivery_cost);
 			$fezsession->set('delivery_state_label', $delivery_state_label);
+			//set mode
+			$fezsession->set('mode', empty($delivery_cost) ? 'safe_locker' : 'local');
 			$fezsession->set('pickup_state_label', $pickup_state_label);
 			$fezsession->set('total_weight', $total_weight);
 			$fezsession->set('location_id', $location_id);
@@ -1013,7 +1088,7 @@ class Admin_Core extends Base
 			$fezsession->set('country_mode', $country_mode);
 
 			//return success
-			wp_send_json_success(array('message' => 'Delivery cost applied successfully'));
+			wp_send_json_success(array('message' => 'Delivery cost applied successfully', 'mode' => empty($delivery_cost) ? 'safe_locker' : 'local'));
 		} catch (\Exception $e) {
 			//log
 			error_log("Fez Delivery Cost Error: " . $e->getMessage());

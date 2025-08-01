@@ -367,13 +367,23 @@ class Fez_Core extends Base
 			//create order
 			$response = Requests::post($url, $headers, json_encode($data));
 
-			error_log("log: " . print_r($response, true));
-
 			//get the body
 			$response_body = json_decode($response->body);
 
 			//check if response is successful
 			if (!$response->success) {
+
+				//check if duplicateUniqueIds is set in response body
+				if (isset($response_body->duplicateUniqueIds)) {
+					//return success
+					return [
+						'success' => true,
+						'message' => "Your order has already been created",
+						'data' => $response_body->duplicateUniqueIds
+					];
+				}
+
+				//return error
 				throw new \Exception($response->body);
 			}
 

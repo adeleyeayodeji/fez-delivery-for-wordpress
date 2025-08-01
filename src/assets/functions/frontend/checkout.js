@@ -4,6 +4,9 @@
  * @version 1.0.0
  */
 jQuery(document).ready(function ($) {
+	//set default value for fez_safe_locker_content
+	window.fez_safe_locker_content = false;
+
 	/**
 	 * resetFezDeliveryCost
 	 *
@@ -328,7 +331,10 @@ jQuery(document).ready(function ($) {
 			return;
 		}
 
-		if (window.fez_delivery_frontend.enable_fez_safe_locker == "yes") {
+		if (
+			window.fez_delivery_frontend.enable_fez_safe_locker == "yes" &&
+			sessionStorage.getItem("fez-safe-locker-ignore") != "true"
+		) {
 			//trigger safe locker checks
 			triggerSafeLockerChecks();
 			return;
@@ -424,6 +430,14 @@ jQuery(document).ready(function ($) {
 			if (label.length > 0) {
 				//check if label has woocommerce-Price-amount
 				if (!label.find(".woocommerce-Price-amount").length) {
+					//check if label has text "Fez Delivery - Safe Locker"
+					if (label.text().includes("Safe Locker")) {
+						//submit
+						jQuery("form[name='checkout']").submit();
+						//return
+						return;
+					}
+
 					//get country value
 					const country = jQuery("#billing_country").val();
 					//check if country is not NG
@@ -431,6 +445,20 @@ jQuery(document).ready(function ($) {
 						//trigger change event on country
 						jQuery("#billing_country").trigger("change");
 					} else {
+						if (
+							window.fez_delivery_frontend
+								.enable_fez_safe_locker == "yes"
+						) {
+							//check if fez_safe_locker_content is true
+							if (window.fez_safe_locker_content) {
+								//show error
+								showFezDeliveryError(
+									"Please select a safe locker or ignore safe locker to continue",
+								);
+								//return
+								return;
+							}
+						}
 						//trigger change event on state
 						jQuery("#billing_state").trigger("change");
 					}
@@ -450,7 +478,7 @@ jQuery(document).ready(function ($) {
 
 	window.handleSafeLockerChange = (element, event) => {
 		//check if local storage has fez-safe-locker-ignore
-		if (localStorage.getItem("fez-safe-locker-ignore") == "true") {
+		if (sessionStorage.getItem("fez-safe-locker-ignore") == "true") {
 			//return
 			return;
 		}
@@ -471,7 +499,7 @@ jQuery(document).ready(function ($) {
 		//check if the checkbox is checked
 		if (checkbox.is(":checked")) {
 			//save local storage
-			localStorage.setItem("fez-safe-locker-ignore", "true");
+			sessionStorage.setItem("fez-safe-locker-ignore", "true");
 			//fez_safe_locker_html_checker
 			fez_safe_locker_html_checker();
 			//get delivery cost
@@ -480,13 +508,13 @@ jQuery(document).ready(function ($) {
 			//trigger fez_safe_locker_html_checker
 			fez_safe_locker_html_checker(false);
 			//remove local storage
-			localStorage.removeItem("fez-safe-locker-ignore");
+			sessionStorage.removeItem("fez-safe-locker-ignore");
 		}
 	};
 
 	window.fez_safe_locker_html_checker = (blockInput = true) => {
 		//check if local storage has fez-safe-locker-ignore
-		if (localStorage.getItem("fez-safe-locker-ignore") == "true") {
+		if (sessionStorage.getItem("fez-safe-locker-ignore") == "true") {
 			//get element with class 'fez-safe-locker-content'
 			var content = jQuery(".fez-safe-locker-content");
 			//check if blockInput is true
@@ -580,6 +608,7 @@ jQuery(document).ready(function ($) {
 						var safeLockers = response.data.data.Lockers;
 						//check if safe lockers is not empty
 						if (safeLockers.length > 0) {
+							window.fez_safe_locker_content = true;
 							//inner html ".fez-safe-locker-content"
 							jQuery(".fez-safe-locker-content").html(
 								`
@@ -603,6 +632,7 @@ jQuery(document).ready(function ($) {
 							//check if local storage has fez-safe-locker-ignore
 							fez_safe_locker_html_checker();
 						} else {
+							window.fez_safe_locker_content = false;
 							//hide .fez-safe-locker
 							jQuery(".fez-safe-locker").hide();
 							//skip and get delivery cost

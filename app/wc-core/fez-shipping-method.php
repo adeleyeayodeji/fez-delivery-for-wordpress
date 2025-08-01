@@ -194,6 +194,21 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 			return;
 		}
 
+		//get mode
+		$mode = $fezsession->get('mode');
+
+		//check if mode is safe_locker
+		if ($mode == 'safe_locker') {
+			//apply rate
+			$this->add_rate(array(
+				'id'        => $this->id . $this->instance_id,
+				'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery - Safe Locker"),
+				'cost'      => apply_filters('fez_delivery_shipping_method_cost', 0),
+			));
+			//return
+			return;
+		}
+
 		//apply rate
 		$this->add_rate(array(
 			'id'        => $this->id . $this->instance_id,

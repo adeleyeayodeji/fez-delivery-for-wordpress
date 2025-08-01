@@ -217,4 +217,65 @@ jQuery(document).ready(function ($) {
 			},
 		});
 	}
+
+	/**
+	 * Fez Delivery Order Sync Button
+	 *
+	 */
+	$(".fez-delivery-order-sync-button-container").on("click", function () {
+		//get order id
+		var orderId = $(this).data("order-id");
+		//confirm
+		if (!confirm("Are you sure you want to sync this order with Fez?")) {
+			return;
+		}
+
+		var element = $(this);
+
+		//send ajax request to sync fez delivery order
+		$.ajax({
+			type: "POST",
+			url: fez_delivery_admin.ajax_url,
+			data: {
+				action: "sync_fez_delivery_order_manual",
+				order_id: orderId,
+				nonce: fez_delivery_admin.nonce,
+			},
+			dataType: "json",
+			beforeSend: function () {
+				//block
+				element.block({
+					message: null,
+					overlayCSS: {
+						backgroundColor: "#fff",
+						opacity: 0.5,
+					},
+					css: {
+						border: "1px solid #ccc",
+						padding: "10px",
+						backgroundColor: "#f9f9f9",
+						borderRadius: "5px",
+					},
+				});
+			},
+			success: function (response) {
+				//unblock
+				element.unblock();
+				//check if response is successful
+				if (response.success) {
+					//reload page
+					location.reload();
+				} else {
+					//show error message
+					alert(response.data.message);
+				}
+			},
+			error: function (response) {
+				//unblock
+				element.unblock();
+				//show error message
+				alert(response.data.message);
+			},
+		});
+	});
 });
