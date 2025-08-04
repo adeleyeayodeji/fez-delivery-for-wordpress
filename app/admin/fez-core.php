@@ -370,11 +370,13 @@ class Fez_Core extends Base
 			//get the body
 			$response_body = json_decode($response->body);
 
+			error_log("log: " . print_r($response_body, true));
+
 			//check if response is successful
 			if (!$response->success) {
 
 				//check if duplicateUniqueIds is set in response body
-				if (isset($response_body->duplicateUniqueIds)) {
+				if (isset($response_body->duplicateUniqueIds) && !empty($response_body->duplicateUniqueIds)) {
 					//return success
 					return [
 						'success' => true,

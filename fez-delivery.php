@@ -7,7 +7,7 @@
  * Author:          Fez Team
  * Author URI:      https://www.fezdelivery.co/
  * Text Domain:     fez-delivery
- * Version:         1.0.3
+ * Version:         1.1.0
  * License:         GPLv2 or later
  * License URI:     https://www.gnu.org/licenses/gpl-2.0.html
  * Requires Plugins: woocommerce
@@ -26,7 +26,7 @@ if (!defined('ABSPATH')) {
 }
 
 //define constants
-define('FEZ_DELIVERY_VERSION', time());
+define('FEZ_DELIVERY_VERSION', '1.1.0');
 define('FEZ_DELIVERY_FILE', __FILE__);
 define('FEZ_DELIVERY_DIR', __DIR__);
 define('FEZ_DELIVERY_URL', plugin_dir_url(__FILE__));

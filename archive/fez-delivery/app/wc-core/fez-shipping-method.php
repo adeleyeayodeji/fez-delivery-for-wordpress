@@ -106,6 +106,13 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				"default" => "",
 				"disabled" => !empty($fez_delivery_user) ? true : false,
 			),
+			'enable_fez_safe_locker' => array(
+				'title'     => __('Enable/Disable Safe Locker', 'fez-delivery'),
+				'type'         => 'checkbox',
+				'label'     => __('Enable Fez Safe Locker', 'fez-delivery'),
+				'default'     => 'no',
+				'disabled' => !empty($fez_delivery_user) ? true : false,
+			),
 			//fez password
 			"fez_password" => array(
 				"title" => __("Fez Password", 'fez-delivery'),
@@ -182,6 +189,21 @@ class WC_Fez_Delivery_Shipping_Method extends WC_Shipping_Method
 				'id'        => $this->id . $this->instance_id,
 				'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery"),
 				'cost'      => apply_filters('fez_delivery_shipping_method_cost', $delivery_cost),
+			));
+			//return
+			return;
+		}
+
+		//get mode
+		$mode = $fezsession->get('mode');
+
+		//check if mode is safe_locker
+		if ($mode == 'safe_locker') {
+			//apply rate
+			$this->add_rate(array(
+				'id'        => $this->id . $this->instance_id,
+				'label'     => apply_filters('fez_delivery_shipping_method_label', "Fez Delivery - Safe Locker (Free Delivery)"),
+				'cost'      => apply_filters('fez_delivery_shipping_method_cost', 0),
 			));
 			//return
 			return;

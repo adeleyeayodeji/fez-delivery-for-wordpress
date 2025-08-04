@@ -91,7 +91,7 @@ class Admin_Core extends Base
 		// Add shipping icon to the shipping label
 		add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_shipping_icon'), PHP_INT_MAX, 2);
 		//woocommerce_checkout_update_order_meta
-		// add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+		add_action('woocommerce_checkout_update_order_meta', array($this, 'save_fez_locker_order_meta'), PHP_INT_MAX);
 		$this->fezCreateOrderCondition();
 		//filter woocommerce_' . $this->order_type . '_list_table_columns
 		add_filter('woocommerce_shop_order_list_table_columns', array($this, 'fez_delivery_order_admin_list_column'), 10);
@@ -107,8 +107,161 @@ class Admin_Core extends Base
 		add_action('woocommerce_admin_order_data_after_shipping_address', array($this, 'add_order_meta_box'), PHP_INT_MAX);
 		//add action to get fez delivery order details
 		add_action('wp_ajax_get_fez_delivery_order_details', array($this, 'get_fez_delivery_order_details'));
+		//add ajax action to get safe locker content
+		add_action('wp_ajax_get_safe_locker_content', array($this, 'get_safe_locker_content'));
+		//add ajax action to get safe locker content
+		add_action('wp_ajax_nopriv_get_safe_locker_content', array($this, 'get_safe_locker_content'));
 		//listen for fez delivery label
 		$this->listen_for_fez_delivery_label();
+		//add ajax action to sync fez delivery order manually
+		add_action('wp_ajax_sync_fez_delivery_order_manual', array($this, 'sync_fez_delivery_order_manual'));
+	}
+
+	/**
+	 * Sync fez delivery order manually
+	 *
+	 * @return void
+	 */
+	public function sync_fez_delivery_order_manual()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_admin_nonce')) {
+				wp_send_json_error('Invalid nonce, please refresh the page and try again.');
+			}
+
+			//get order id
+			$order_id = sanitize_text_field(wp_unslash($_POST['order_id']));
+
+			//get order
+			$order = wc_get_order($order_id);
+
+			//send order to fez server
+			$response = $this->send_order_to_fez_server($order);
+
+			//check if response is successful
+			if ($response['success']) {
+				//return success
+				wp_send_json_success([
+					'success' => true,
+					'message' => $response['message']
+				]);
+			} else {
+				//return error
+				wp_send_json_error([
+					'success' => false,
+					'message' => $response['message']
+				]);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Order Sync Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error([
+				'success' => false,
+				'message' => $e->getMessage()
+			]);
+		}
+	}
+
+	/**
+	 * Save fez locker order meta
+	 *
+	 * @param mixed $order
+	 * @return void
+	 */
+	public function save_fez_locker_order_meta($order)
+	{
+		try {
+			//check if order is an instance of WC_Order
+			if ($order && $order instanceof WC_Order) {
+				//get order id
+				$order_id = $order->get_id();
+			} else {
+				//get order id
+				$order_id = $order;
+			}
+
+			//get order
+			$order = wc_get_order($order_id);
+			//get fez session
+			$fez_session = FezCoreSession::instance();
+			//get safe locker id
+			$safe_locker_id = $fez_session->get('safe_locker_id');
+			//check if safe locker id is not empty
+			if (!empty($safe_locker_id)) {
+				//save safe locker id to order meta
+				$order->update_meta_data('fez_safe_locker_id', $safe_locker_id);
+				//safe another for post meta
+				update_post_meta($order->get_id(), 'fez_safe_locker_id', $safe_locker_id);
+				//add order message
+				$order->add_order_note('Fez Safe Locker ID: ' . $safe_locker_id);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Save Locker Order Meta Error: " . $e->getMessage());
+		}
+	}
+
+	/**
+	 * Get safe locker content
+	 *
+	 * @return void
+	 */
+	public function get_safe_locker_content()
+	{
+		try {
+			//validate nonce
+			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['nonce'])), 'fez_delivery_frontend_nonce')) {
+				throw new \Exception('Invalid nonce, please refresh the page and try again.');
+			}
+
+			//get fez core
+			$fez_core = Fez_Core::instance();
+
+			//get billing state
+			$billing_state = sanitize_text_field($_GET['billing_state']);
+
+			//get woocommerce states
+			$woocommerce_states = WC()->countries->get_states("NG");
+
+			//get state from state code
+			$state_name = $woocommerce_states[$billing_state];
+
+			//check if state name is abuja
+			if (strpos(strtolower($state_name), 'abuja') !== false) {
+				$state_name = 'FCT';
+			}
+
+			//get safe locker content
+			$response = $fez_core->getSafeLockerContent($state_name);
+
+			//check if response is successful
+			if ($response['success']) {
+				//send success response
+				wp_send_json_success([
+					'success' => true,
+					'message' => $response['message'],
+					'data' => $response['data']
+				]);
+			} else {
+				//send error response
+				wp_send_json_error([
+					'success' => false,
+					'message' => $response['message'],
+					'data' => null
+				]);
+			}
+		} catch (\Exception $e) {
+			//log
+			error_log("Fez Delivery Safe Locker Content Error: " . $e->getMessage());
+			//return error
+			wp_send_json_error([
+				'success' => false,
+				'message' => $e->getMessage(),
+				'data' => null
+			]);
+		}
 	}
 
 	/**
@@ -128,7 +281,7 @@ class Admin_Core extends Base
 			switch ($create_fez_order_condition) {
 				case 'processing':
 					//woocommerce_checkout_order_created
-					add_action('woocommerce_checkout_order_created', array($this, 'save_fez_delivery_order_meta'), PHP_INT_MAX);
+					add_action('woocommerce_checkout_order_created', array($this, 'send_order_to_fez_server'), PHP_INT_MAX);
 					break;
 				case 'pending':
 					//on order pending
@@ -321,9 +474,12 @@ class Admin_Core extends Base
 
 
 			<div class="fez-delivery-order-details">
-				<h3>
-					<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
-				</h3>
+				<div class="fez-delivery-order-details-header">
+					<h3>
+						<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo"> <span> Delivery Details</span>
+					</h3>
+					<a href="javascript:void(0)" onclick="window.location.reload()" class="fez-delivery-order-refresh-button">Refresh</a>
+				</div>
 
 				<p>Order No: <?php echo esc_html($fez_delivery_order_nos); ?></p>
 
@@ -335,6 +491,13 @@ class Admin_Core extends Base
 					<a href="<?php echo esc_url($fez_delivery_url . $fez_delivery_order_nos); ?>" class="fez-delivery-order-details-button" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>" target="_blank">Track Delivery</a>
 					<a href="<?php echo esc_url($constructed_url); ?>" class="fez-delivery-order-label-button" data-order-id="<?php echo esc_attr($order->get_id()); ?>" data-order-nos="<?php echo esc_attr($fez_delivery_order_nos); ?>">Download Label</a>
 				</div>
+			</div>
+		<?php
+		} else {
+		?>
+			<div class="fez-delivery-order-sync-button-container" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
+				<img src="<?php echo esc_url(FEZ_DELIVERY_ASSETS_URL); ?>img/fez_logo.svg" alt="Fez" class="fez-delivery-logo">
+				<a href="javascript:void(0)" class="fez-delivery-order-sync-button">Sync with Fez</a>
 			</div>
 		<?php
 		}
@@ -541,21 +704,26 @@ class Admin_Core extends Base
 	 */
 	public function send_order_to_fez_server($order)
 	{
-		try {
-			//check if order is an instance of WC_Order
-			if ($order && $order instanceof WC_Order) {
-				//get order id
-				$order_id = $order->get_id();
-			} else {
-				//get order
-				$order = wc_get_order($order);
-				//get order id
-				$order_id = $order->get_id();
-			}
+		//check if order is an instance of WC_Order
+		if ($order && $order instanceof WC_Order) {
+			//get order id
+			$order_id = $order->get_id();
+		} else {
+			//get order
+			$order = wc_get_order($order);
+			//get order id
+			$order_id = $order->get_id();
+		}
 
-			//igonre if order country is not NG
-			if ($order->get_billing_country() !== 'NG') {
-				return;
+		try {
+
+			//get customer note
+			$customer_note = $order->get_customer_note();
+
+			//check if order is already synced
+			if (!empty($order->get_meta('fez_delivery_order_nos'))) {
+				//return
+				return false;
 			}
 
 			//get customer billing state
@@ -566,23 +734,24 @@ class Admin_Core extends Base
 			//get pickup state
 			$pickup_state = $fez_core->pickup_state;
 
-			//get woocommerce states
-			$woocommerce_states = WC()->countries->get_states("NG");
-
-			//get state from state code
-			$delivery_state_label = $woocommerce_states[$customer_billing_state];
-
-			//get state from state code
-			$pickup_state_label = $woocommerce_states[$pickup_state];
-
 			//order_id
 			$order_id = $order->get_id();
+
+			$data_items_message = "";
+
+			$local_payment_method = ['bacs', 'cod'];
 
 			//get total weight
 			$total_weight = 0;
 			foreach ($order->get_items() as $item) {
 				$product_id = $item->get_product_id();
+
 				$total_weight += (float)get_post_meta($product_id, '_weight', true) ?: 0;
+
+				//append to data items message
+				$data_items_message .= "{$item->get_quantity()} of {$item->get_name()} at {$item->get_total()}, ";
+				//add new line
+				$data_items_message .= "\n";
 			}
 
 			//get billing address
@@ -594,43 +763,142 @@ class Admin_Core extends Base
 			//customer phone
 			$customer_phone = $order->get_billing_phone();
 
-			//get the shiiping amount from fez
-			$shipping_amount = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight);
+			//igonre if order country is not NG
+			if ($order->get_billing_country() !== 'NG') {
 
-			//check if shipping amount is successful
-			if (!$shipping_amount['success']) {
-				throw new \Exception('Shipping amount is not successful');
+				//get order country
+				$order_country = $order->get_billing_country();
+
+				//get customers email
+				$customer_email = $order->get_billing_email();
+
+				//get weight for export locations
+				$export_result = $this->get_export_locations_and_exports_weights($order_country);
+
+				//check if export result is not empty
+				if (empty($export_result)) {
+					throw new \Exception('Export locations and exports weights is not successful');
+				}
+
+				//get weight for export locations
+				$weight_result = $this->extract_weight_id($total_weight, $export_result->int_price);
+
+				//get Export Delivery Cost
+				$response = $fez_core->getExportDeliveryCost($weight_result['weight_id'], $weight_result['location_id']);
+
+				//check if response is successful
+				if (!$response['success']) {
+					throw new \Exception('Export delivery cost is not successful: ' . $response['message']);
+				}
+
+				//get shipping amount
+				$shipping_amount = $response['data']->data->price;
+
+				$dataRequest = [
+					[
+						"recipientAddress" => $billing_address['address_1'],
+						"recipientName" => $customer_name,
+						"recipientPhone" => $customer_phone,
+						"recipientEmail" => $customer_email,
+						"uniqueID" => "woocommerce_" . $order_id,
+						"BatchID" => "woocommerce_batch_" . $order_id,
+						"valueOfItem" => $order->get_total(),
+						"exportLocationId" => $weight_result['location_id'],
+						"weight" => $weight_result['weight_size'],
+						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
+						"orderRequestSource" => "WooCommerce Plugin",
+						"additionalDetails" => $customer_note
+					]
+				];
+
+				//check if payment method is bank transfer, cash on delivery
+				if (in_array($order->get_payment_method(), $local_payment_method)) {
+					//add isItemCod and cashOnDeliveryAmount
+					$dataRequest[0]['isItemCod'] = true;
+					$dataRequest[0]['cashOnDeliveryAmount'] = $order->get_total();
+				}
+
+				//get delivery cost
+				$response = $fez_core->createOrder($dataRequest, true);
+
+				//add note: order type
+				$order->add_order_note('Fez Delivery Order Type: Export');
+			} else {
+				//do normal delivery cost
+
+				//get woocommerce states
+				$woocommerce_states = WC()->countries->get_states("NG");
+
+				//get customers email
+				$customer_email = $order->get_billing_email();
+
+				//get state from state code
+				$delivery_state_label = $woocommerce_states[$customer_billing_state];
+
+				//get state from state code
+				$pickup_state_label = $woocommerce_states[$pickup_state];
+
+				//get fez safe locker id from order
+				$fez_safe_locker_id = get_post_meta($order_id, 'fez_safe_locker_id', true) ?: "none";
+
+				//get the shiiping amount from fez
+				$shipping_amount = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight, $fez_safe_locker_id);
+
+				//check if shipping amount is successful
+				if (!$shipping_amount['success']) {
+					throw new \Exception('Failed to get delivery cost: ' . $shipping_amount['message']);
+				}
+
+				//check if delivery state is matched abuja
+				if (strpos(strtolower($delivery_state_label), 'abuja') !== false) {
+					$delivery_state_label = 'FCT';
+				}
+
+				//check if pickup state is matched abuja
+				if (strpos(strtolower($pickup_state_label), 'abuja') !== false) {
+					$pickup_state_label = 'FCT';
+				}
+
+				//get shipping amount
+				$shipping_amount = $shipping_amount['cost']->cost;
+
+				$dataRequest = [
+					[
+						"recipientAddress" => $billing_address['address_1'],
+						"recipientState" => $delivery_state_label,
+						"recipientName" => $customer_name,
+						"recipientPhone" => $customer_phone,
+						"recipientEmail" => $customer_email,
+						"uniqueID" => "woocommerce_" . $order_id,
+						"BatchID" => "woocommerce_batch_" . $order_id,
+						"valueOfItem" => $order->get_total(),
+						"weight" => $total_weight,
+						"pickUpState" => $pickup_state_label,
+						"itemDescription" => "Order #" . $order_id . " with items: " . $data_items_message,
+						"orderRequestSource" => "WooCommerce Plugin",
+						"additionalDetails" => $customer_note
+					]
+				];
+
+				//check if fez safe locker id is not empty
+				if (!empty($fez_safe_locker_id) && $fez_safe_locker_id != "none") {
+					//add safe locker id to data request
+					$dataRequest[0]['lockerID'] = $fez_safe_locker_id;
+				}
+
+				//check if payment method is bank transfer, cash on delivery
+				if (in_array($order->get_payment_method(), $local_payment_method)) {
+					//add isItemCod and cashOnDeliveryAmount
+					$dataRequest[0]['isItemCod'] = true;
+					$dataRequest[0]['cashOnDeliveryAmount'] = $order->get_total();
+				}
+
+				//get delivery cost
+				$response = $fez_core->createOrder($dataRequest);
+
+				//add note: order type
+				$order->add_order_note('Fez Delivery Order Type: Local');
 			}
-
-			//check if delivery state is matched abuja
-			if (strpos(strtolower($delivery_state_label), 'abuja') !== false) {
-				$delivery_state_label = 'FCT';
-			}
-
-			//check if pickup state is matched abuja
-			if (strpos(strtolower($pickup_state_label), 'abuja') !== false) {
-				$pickup_state_label = 'FCT';
-			}
-
-			//get shipping amount
-			$shipping_amount = $shipping_amount['cost']->cost;
-
-			$dataRequest = [
-				[
-					"recipientAddress" => $billing_address['address_1'],
-					"recipientState" => $delivery_state_label,
-					"recipientName" => $customer_name,
-					"recipientPhone" => $customer_phone,
-					"uniqueID" => "woocommerce_" . $order_id,
-					"BatchID" => "woocommerce_batch_" . $order_id,
-					"valueOfItem" => $order->get_total(),
-					"weight" => $total_weight,
-					"pickUpState" => $pickup_state_label
-				]
-			];
-
-			//get delivery cost
-			$response = $fez_core->createOrder($dataRequest);
 
 			//check if response is successful
 			if ($response['success']) {
@@ -677,18 +945,38 @@ class Admin_Core extends Base
 
 				//save order
 				$order->save();
+
+				return [
+					'success' => true,
+					'message' => $response['message']
+				];
 			} else {
-				error_log("Fez Delivery Order Error: " . $response['message']);
 				//add wc order note
 				$order->add_order_note('Fez Delivery Order Error: ' . $response['message']);
 				//add note to order
 				$order->add_order_note('Fez Delivery sync failed via Admin Panel');
 				//save order
 				$order->save();
+
+				return [
+					'success' => false,
+					'message' => $response['message']
+				];
 			}
 		} catch (\Exception $e) {
 			//log
 			error_log("Fez Delivery Order Send Error: " . $e->getMessage());
+			//add wc order note
+			$order->add_order_note('Fez Delivery Order Send Error: ' . $e->getMessage());
+			//add note to order
+			$order->add_order_note('Fez Delivery sync failed via Admin Panel');
+			//save order
+			$order->save();
+
+			return [
+				'success' => false,
+				'message' => $e->getMessage()
+			];
 		}
 	}
 
@@ -748,6 +1036,8 @@ class Admin_Core extends Base
 			$fezsession->unset('delivery_state_label');
 			$fezsession->unset('pickup_state_label');
 			$fezsession->unset('total_weight');
+			//unset mode
+			$fezsession->unset('mode');
 
 			//return success
 			wp_send_json_success(array('message' => 'Delivery cost reset successfully'));
@@ -776,9 +1066,9 @@ class Admin_Core extends Base
 			$delivery_cost = sanitize_text_field($_POST['delivery_cost']);
 
 			//check if delivery cost is not empty
-			if (empty($delivery_cost)) {
-				throw new \Exception('Delivery cost is empty, please try again');
-			}
+			// if (empty($delivery_cost)) {
+			// 	throw new \Exception('Delivery cost is empty, please try again');
+			// }
 
 			//get delivery state label
 			$delivery_state_label = sanitize_text_field($_POST['delivery_state_label']);
@@ -789,6 +1079,14 @@ class Admin_Core extends Base
 			//get total weight
 			$total_weight = sanitize_text_field($_POST['total_weight']);
 
+			//get country mode
+			$country_mode = sanitize_text_field($_POST['country_mode']);
+
+			//get location id
+			$location_id = $country_mode ? sanitize_text_field($_POST['location_id']) : "";
+			//get weight id
+			$weight_id = $country_mode ? sanitize_text_field($_POST['weight_id']) : "";
+
 			//set session
 			$fezsession = FezCoreSession::instance();
 
@@ -797,21 +1095,84 @@ class Admin_Core extends Base
 			$fezsession->unset('delivery_state_label');
 			$fezsession->unset('pickup_state_label');
 			$fezsession->unset('total_weight');
+			$fezsession->unset('location_id');
+			$fezsession->unset('weight_id');
+			$fezsession->unset('country_mode');
 
 			//set new data
 			$fezsession->set('delivery_cost', $delivery_cost);
 			$fezsession->set('delivery_state_label', $delivery_state_label);
+			//set mode
+			$fezsession->set('mode', empty($delivery_cost) ? 'safe_locker' : 'local');
 			$fezsession->set('pickup_state_label', $pickup_state_label);
 			$fezsession->set('total_weight', $total_weight);
+			$fezsession->set('location_id', $location_id);
+			$fezsession->set('weight_id', $weight_id);
+			$fezsession->set('country_mode', $country_mode);
 
 			//return success
-			wp_send_json_success(array('message' => 'Delivery cost applied successfully'));
+			wp_send_json_success(array('message' => 'Delivery cost applied successfully', 'mode' => empty($delivery_cost) ? 'safe_locker' : 'local'));
 		} catch (\Exception $e) {
 			//log
 			error_log("Fez Delivery Cost Error: " . $e->getMessage());
 			//return error
 			wp_send_json_error(array('message' => $e->getMessage()));
 		}
+	}
+
+	/**
+	 * Extract weight id
+	 *
+	 * @param float $total_weight
+	 * @param array $result
+	 * @return mixed
+	 */
+	public function extract_weight_id($total_weight, $result)
+	{
+		usort($result, function ($a, $b) {
+			return floatval($a->weight->name) <=> floatval($b->weight->name);
+		});
+
+		$default_weight = [
+			'weight_id' => $result[0]->weights_id,
+			'weight_size' => $result[0]->weight->name,
+			'location_id' => $result[0]->intlocations_id,
+		];
+
+		//check if total weight is zero
+		if (empty($total_weight)) {
+			//return first weight id
+			return $default_weight;
+		}
+
+		//get array of weight names
+		$weight_names = array_map(
+			function ($item) {
+				return floatval($item->weight->name);
+			},
+			$result
+		);
+
+		//get weight index
+		$weight_index = array_search($total_weight, $weight_names);
+
+		//check if weight index is empty
+		if (empty($weight_index)) {
+			//approximate weight
+			$total_weight = ceil($total_weight);
+			//get weight index
+			$weight_index = array_search($total_weight, $weight_names);
+		}
+
+		//get weight id
+		$weight_result = $weight_index !== false ? [
+			'weight_id' => $result[$weight_index]->weights_id,
+			'weight_size' => $result[$weight_index]->weight->name,
+			'location_id' => $result[$weight_index]->intlocations_id,
+		] : $default_weight;
+
+		//return weight id
+		return $weight_result;
 	}
 
 	/**
@@ -822,33 +1183,31 @@ class Admin_Core extends Base
 	public function get_fez_delivery_cost()
 	{
 		try {
+			//init fez core
+			$fez_core = Fez_Core::instance();
+
 			//validate nonce
 			if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'fez_delivery_frontend_nonce')) {
 				throw new \Exception('Invalid nonce');
 			}
 
-			//get delivery state
-			$delivery_state = sanitize_text_field($_POST['deliveryState']);
+			//get country
+			$country = sanitize_text_field($_POST['country']);
 
-			//check if not empty
-			if (empty($delivery_state)) {
-				throw new \Exception('Delivery state is empty');
+			//get safe locker id
+			$safe_locker_id = sanitize_text_field($_POST['safe_locker_id']);
+
+			//session
+			$fez_session = FezCoreSession::instance();
+
+			//check if safe locker id is not none
+			if ($safe_locker_id != "none") {
+				//save safe locker id to session
+				$fez_session->set('safe_locker_id', $safe_locker_id);
+			} else {
+				//unset safe locker id
+				$fez_session->unset('safe_locker_id');
 			}
-
-			//init fez core
-			$fez_core = Fez_Core::instance();
-
-			//get pickup state
-			$pickup_state = $fez_core->pickup_state;
-
-			//get woocommerce states
-			$woocommerce_states = WC()->countries->get_states("NG");
-
-			//get state from state code
-			$delivery_state_label = $woocommerce_states[$delivery_state];
-
-			//get state from state code
-			$pickup_state_label = $woocommerce_states[$pickup_state];
 
 			//get total weight
 			$cart_items = WC()->cart->get_cart();
@@ -864,8 +1223,64 @@ class Admin_Core extends Base
 				$total_weight += !empty($item['data']->get_weight()) ? (float)$item['data']->get_weight() : 0;
 			}
 
+			//check if country is not NG
+			if ($country != 'NG') {
+				//get weight for export locations
+				$result = $this->get_export_locations_and_exports_weights($country);
+
+				//get weight for export locations
+				$weight_result = $this->extract_weight_id($total_weight, $result->int_price);
+
+				//get Export Delivery Cost
+				$response = $fez_core->getExportDeliveryCost($weight_result['weight_id'], $weight_result['location_id']);
+
+				//check if response is successful
+				if ($response['success']) {
+					//return success
+					wp_send_json_success(array(
+						'message' => $response['message'],
+						'cost' => (object)[
+							"cost" => $response['data']->data->price
+						],
+						'total_weight' => $total_weight,
+						'pickup_state_label' => "Nigeria",
+						'delivery_state_label' => $result->name,
+						'location_id' => $weight_result['location_id'],
+						'weight_id' => $weight_result['weight_id'],
+						'country_mode' => true
+					));
+				} else {
+					//return error
+					wp_send_json_error(array(
+						'message' => $response['message'],
+						'cost' => 0,
+						'country_mode' => true
+					));
+				}
+			}
+
+			//get delivery state
+			$delivery_state = sanitize_text_field($_POST['deliveryState']);
+
+			//check if not empty
+			if (empty($delivery_state)) {
+				throw new \Exception('Delivery state is empty');
+			}
+
+			//get pickup state
+			$pickup_state = $fez_core->pickup_state;
+
+			//get woocommerce states
+			$woocommerce_states = WC()->countries->get_states("NG");
+
+			//get state from state code
+			$delivery_state_label = $woocommerce_states[$delivery_state];
+
+			//get state from state code
+			$pickup_state_label = $woocommerce_states[$pickup_state];
+
 			//get delivery cost
-			$response = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight);
+			$response = $fez_core->getDeliveryCost($delivery_state_label, $pickup_state_label, $total_weight, $safe_locker_id);
 
 			//check if response is successful
 			if ($response['success']) {
@@ -875,13 +1290,15 @@ class Admin_Core extends Base
 					'cost' => $response['cost'],
 					'delivery_state_label' => $delivery_state_label,
 					'pickup_state_label' => $pickup_state_label,
-					'total_weight' => $total_weight
+					'total_weight' => $total_weight,
+					'country_mode' => false
 				));
 			} else {
 				//return error
 				wp_send_json_error(array(
 					'message' => $response['message'],
-					'cost' => 0
+					'cost' => 0,
+					'country_mode' => false
 				));
 			}
 		} catch (\Exception $e) {
@@ -889,7 +1306,7 @@ class Admin_Core extends Base
 			error_log("Fez Delivery Cost Error: " . $e->getMessage());
 			//return error
 			wp_send_json_error(array(
-				'message' => 'Error getting delivery cost: ' . $e->getMessage() . ' on line ' . $e->getLine() . ' in ' . $e->getFile(),
+				'message' => 'Unable to get fez delivery cost: ' . $e->getMessage(),
 				'cost' => 0
 			));
 		}
@@ -946,6 +1363,12 @@ class Admin_Core extends Base
 	 */
 	public function enqueue_frontend_script()
 	{
+		//get fez core
+		$fez_core = Fez_Core::instance();
+
+		//get enable fez safe locker
+		$enable_fez_safe_locker = $fez_core->enable_fez_safe_locker;
+
 		//enqueue frontend script
 		wp_enqueue_script('fez-delivery-frontend-script', FEZ_DELIVERY_ASSETS_URL . 'js/fezdeliveryhome.min.js', array('jquery'), FEZ_DELIVERY_VERSION, true);
 		//style
@@ -953,7 +1376,9 @@ class Admin_Core extends Base
 		//localize script
 		wp_localize_script('fez-delivery-frontend-script', 'fez_delivery_frontend', array(
 			'ajax_url' => admin_url('admin-ajax.php'),
-			'nonce' => wp_create_nonce('fez_delivery_frontend_nonce')
+			'nonce' => wp_create_nonce('fez_delivery_frontend_nonce'),
+			'export_locations_and_exports_weights' => is_checkout() || is_cart() ? $this->get_export_locations_and_exports_weights() : null,
+			'enable_fez_safe_locker' => $enable_fez_safe_locker
 		));
 	}
 
@@ -1008,6 +1433,8 @@ class Admin_Core extends Base
 			$fez_password = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_password']);
 			//get woocommerce_fez_delivery_fez_mode
 			$fez_mode = sanitize_text_field($_POST['woocommerce_fez_delivery_fez_mode']);
+			//get woocommerce_fez_delivery_enable_fez_safe_locker
+			$enable_fez_safe_locker = absint($_POST['woocommerce_fez_delivery_enable_fez_safe_locker']);
 			//get woocommerce_fez_delivery_enabled
 			$enabled = absint($_POST['woocommerce_fez_delivery_enabled']);
 			//get woocommerce_fez_delivery_fez_pickup_state
@@ -1050,8 +1477,10 @@ class Admin_Core extends Base
 					'fez_password' => $fez_password,
 					'enabled' => $enabled ? 'yes' : 'no',
 					'fez_pickup_state' => $fez_pickup_state,
-					'create_fez_order_condition' => $create_fez_order_condition
+					'create_fez_order_condition' => $create_fez_order_condition,
+					'enable_fez_safe_locker' => $enable_fez_safe_locker ? 'yes' : 'no'
 				];
+
 				//check if old options is not empty
 				if (!empty($old_options)) {
 					//update woocommerce options
@@ -1117,6 +1546,57 @@ class Admin_Core extends Base
 				'message' => 'Error disconnecting user: ' . $e->getMessage(),
 				'status' => 'error'
 			));
+		}
+	}
+
+
+	/**
+	 * Check if current page is woocommerce checkout page
+	 * @param string $country
+	 *
+	 * @return void|mixed
+	 */
+	public function get_export_locations_and_exports_weights($country = 'CA')
+	{
+		//fez session
+		$fezsession = FezCoreSession::instance();
+
+		//check if session exists
+		if ($result = $fezsession->get('export_locations_and_exports_weights')) {
+			//loop
+			foreach ($result as $key => $value) {
+				//check if country_code matches
+				if ($value->country_code == $country) {
+					//return data
+					return $value;
+				}
+			}
+			//return empty array
+			return [];
+		}
+
+		//get export locations and exports weights
+		$response = Fez_Core::instance()->getExportLocationsAndExportsWeights();
+
+		//check if response is successful
+		if ($response['success']) {
+			//get data
+			$data = $response['data']->data->exportLocations;
+
+			//set export locations and exports weights
+			$fezsession->set('export_locations_and_exports_weights', $data);
+
+			//loop
+			foreach ($data as $key => $value) {
+				//check if country_code matches
+				if ($value->country_code == $country) {
+					//return data
+					return $value;
+				}
+			}
+
+			//return data
+			return [];
 		}
 	}
 }
