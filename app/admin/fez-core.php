@@ -292,19 +292,11 @@ class Fez_Core extends Base
 
 			//check if response status is Success
 			if ($response_body->status == 'Success') {
-				//check if $response_body->Cost is an array
-				if (isset($response_body->Cost) && is_array($response_body->Cost)) {
-					//get the first item
-					$response_body->Cost = $response_body->Cost[0];
-				}
 
-				//check if isset locker cost
-				if (isset($response_body->cost)) {
-					//add locker cost to response body
-					$response_body->Cost = (object) [
-						'cost' => $response_body->cost
-					];
-				}
+				//add locker cost to response body
+				$response_body->Cost = (object) [
+					'cost' => $response_body->totalCost
+				];
 
 				//return success
 				return [
